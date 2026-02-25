@@ -1,0 +1,2354 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>AEROCORD – Studio Grade Engine</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<meta name="theme-color" content="#46ce83">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="AEROCORD">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --bg-dark: #05070a;
+  --accent: #46ce83;
+  --accent-glow: rgba(70, 206, 131, 0.5);
+  --glass: rgba(255, 255, 255, 0.03);
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --text-dim: rgba(255, 255, 255, 0.5);
+  --sharp-key: #121418;
+  --sharp-active: #1a5c38;
+}
+
+body{
+  margin:0; min-height:100vh; display:flex; justify-content:center; align-items:center;
+  background: radial-gradient(circle at 10% 10%, #162a1d, transparent 40%),
+              radial-gradient(circle at 90% 90%, #122130, transparent 40%),
+              var(--bg-dark);
+  font-family:'Space Grotesk', sans-serif; color:#fff;
+  overflow: hidden;
+}
+
+#hand-pointer {
+  position: fixed; width: 18px; height: 18px; background: #fff;
+  border-radius: 50%; pointer-events: none; z-index: 10000;
+  box-shadow: 0 0 30px var(--accent); display: none;
+  mix-blend-mode: screen; transition: width 0.1s, height 0.1s;
+}
+
+.aerocord-container{
+  width: 1350px; max-width: 97vw; padding: 0; border-radius: 24px;
+  background: var(--glass);
+  backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 50px 100px rgba(0,0,0,0.8);
+  position: relative; z-index: 1;
+}
+
+/* Top bar spans full width */
+/* ---- INSTRUMENT HEADER (inside left-col, above mixer) ---- */
+.inst-header {
+    position: relative;
+    display: flex; align-items: center; justify-content: center;
+    padding: 12px 16px; margin-bottom: 12px;
+    background: rgba(0,0,0,0.25);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 16px;
+    min-height: 72px;
+}
+.inst-logo {
+    position: absolute; left: 16px;
+    display: flex; flex-direction: column; gap: 3px;
+}
+.inst-logo-name {
+    font-size: 15px; font-weight: 700; letter-spacing: 7px;
+    color: var(--accent); text-shadow: 0 0 12px var(--accent-glow); line-height: 1;
+}
+.inst-logo-sub {
+    font-size: 7.5px; letter-spacing: 2.5px; opacity: 0.3;
+    text-transform: uppercase; font-weight: 300;
+}
+.inst-chord-display {
+    display: flex; flex-direction: row;
+    align-items: center; justify-content: center; gap: 14px;
+}
+.inst-chord-name {
+    font-size: 26px; font-weight: 700; letter-spacing: 3px;
+    color: rgba(255,255,255,0.2); line-height: 1;
+    transition: color 0.3s, text-shadow 0.3s;
+}
+.inst-chord-name.active {
+    color: #fff;
+    text-shadow: 0 0 28px rgba(70,206,131,0.35);
+}
+.inst-chord-label {
+    font-size: 7px; letter-spacing: 3px; opacity: 0.25; text-transform: uppercase;
+}
+.inst-controls {
+    position: absolute; right: 16px;
+    display: flex; align-items: center; gap: 16px;
+}
+.inst-ctrl-group { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+.inst-ctrl-label { font-size: 7px; letter-spacing: 2.5px; opacity: 0.3; text-transform: uppercase; }
+.inst-ctrl-row { display: flex; align-items: center; gap: 5px; }
+.inst-ctrl-btn {
+    width: 24px; height: 24px; border-radius: 7px;
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09);
+    color: rgba(255,255,255,0.6); font-size: 10px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s; font-family: inherit; line-height: 1;
+}
+.inst-ctrl-btn:hover { background: rgba(70,206,131,0.15); border-color: rgba(70,206,131,0.4); color: var(--accent); }
+.inst-ctrl-val { font-size: 16px; font-weight: 700; color: var(--accent); min-width: 30px; text-align: center; letter-spacing: 1px; line-height: 1; }
+.inst-ctrl-unit { font-size: 8px; letter-spacing: 1.5px; opacity: 0.4; text-transform: uppercase; }
+.inst-tap-btn {
+    padding: 4px 9px; border-radius: 7px;
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09);
+    color: rgba(255,255,255,0.5); font-size: 8px; letter-spacing: 1.5px;
+    cursor: pointer; font-family: inherit; transition: all 0.1s;
+}
+.inst-tap-btn:hover { background: rgba(70,206,131,0.15); border-color: rgba(70,206,131,0.4); color: var(--accent); }
+.inst-tap-btn:active { background: rgba(70,206,131,0.3); transform: scale(0.95); }
+.inst-divider { width: 1px; height: 28px; background: rgba(255,255,255,0.07); }
+
+/* Left column */
+.left-col { display: flex; flex-direction: column; padding: 20px 24px; }
+
+/* Right panel — always visible, full height */
+header { text-align: center; margin-bottom: 10px; position: relative; }
+
+.settings-toggle {
+    background: none; border: 1px solid var(--glass-border); color: var(--accent);
+    padding: 5px 15px; border-radius: 20px; font-size: 9px; letter-spacing: 2px;
+    cursor: pointer; margin: 10px auto; display: block; transition: 0.3s;
+}
+.settings-toggle:hover { background: var(--accent); color: #000; }
+
+#mixer-section {
+    max-height: 500px; overflow: hidden;
+    transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s, margin 0.5s;
+}
+#mixer-section.collapsed { max-height: 0; opacity: 0; margin-bottom: 0; pointer-events: none; }
+
+.mixer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+.mixer-channel { 
+  background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); 
+  border-radius: 24px; padding: 18px; 
+}
+.channel-label { font-size: 11px; letter-spacing: 3px; color: var(--accent); margin-bottom: 15px; font-weight: 600; }
+
+.control-group { display: flex; align-items: center; gap: 15px; margin-bottom: 12px; }
+.control-group span { font-size: 9px; width: 40px; opacity: 0.6; font-weight: 500; }
+
+.fx-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; align-items: center; }
+
+select {
+  background: #1a1d21; border: 1px solid var(--glass-border);
+  color: #fff; padding: 6px 10px; border-radius: 10px; font-size: 10px; font-family: inherit;
+  outline: none; cursor: pointer; width: 100%;
+}
+
+input[type=range] { -webkit-appearance: none; flex: 1; background: transparent; cursor: pointer; }
+input[type=range]::-webkit-slider-runnable-track { height: 3px; background: rgba(255,255,255,0.08); border-radius: 2px; }
+input[type=range]::-webkit-slider-thumb { 
+  -webkit-appearance: none; height: 14px; width: 14px; border-radius: 50%; 
+  background: var(--accent); margin-top: -5.5px; box-shadow: 0 0 10px var(--accent-glow);
+}
+
+button, .mode-btn {
+  background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border);
+  border-radius: 12px; color: #fff; padding: 10px 0; font-family: inherit;
+  font-size: 11px; cursor: pointer; transition: all 0.2s ease;
+  width: 100%; letter-spacing: 1px;
+}
+button:hover, .mode-btn:hover { background: rgba(255,255,255,0.12); }
+button.active, .mode-btn.active { 
+  background: var(--accent) !important; 
+  color: #000 !important; 
+  font-weight: 600; 
+  box-shadow: 0 0 20px var(--accent-glow) !important;
+  border-color: var(--accent) !important;
+}
+
+button.sharp-note { 
+  background: var(--sharp-key); 
+  border: 1px solid rgba(255,255,255,0.05); 
+  color: rgba(255,255,255,0.6); 
+}
+button.sharp-note.active { 
+  background: var(--sharp-active) !important; 
+  color: #fff !important; 
+  font-weight: 600; 
+  box-shadow: 0 0 20px rgba(26, 92, 56, 0.8);
+  border-color: var(--accent);
+}
+
+.panel-title { font-size: 10px; letter-spacing: 2px; color: var(--text-dim); margin: 10px 0 10px 5px; }
+.grid-buttons { display: grid; gap: 8px; }
+.roots-grid { grid-template-columns: repeat(12, 1fr); }
+.types-grid { grid-template-columns: repeat(8, 1fr); }
+
+.strum-area {
+  margin-top: 20px; display: grid; grid-template-columns: repeat(12, 1fr);
+  gap: 15px; height: 250px; transition: height 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+#mixer-section.collapsed ~ .strum-area { height: 480px; }
+
+.string {
+  position: relative; background: linear-gradient(to bottom, transparent, rgba(255,255,255,0.02), transparent);
+  border: 1px solid rgba(255,255,255,0.05); border-radius: 15px;
+  display: flex; align-items: flex-end; justify-content: center; padding-bottom: 15px;
+  transition: all 0.2s ease;
+}
+
+.string-wire {
+  position: absolute; top: 0; left: 50%; width: 1px; height: 100%;
+  background: linear-gradient(to bottom, transparent, rgba(255,255,255,0.1) 50%, transparent);
+  transform: translateX(-50%);
+  transition: all 0.2s ease;
+}
+
+.string span { font-size: 10px; opacity: 0.3; font-weight: 600; }
+
+.string.active { 
+    background: rgba(70, 206, 131, 0.25) !important; 
+    border-color: var(--accent) !important;
+    transform: scaleX(1.05);
+}
+.string.active .string-wire {
+    background: linear-gradient(to bottom, transparent, #fff 50%, transparent) !important;
+    box-shadow: 0 0 15px #fff;
+}
+
+footer { text-align: center; margin-top: 20px; font-size: 10px; letter-spacing: 3px; opacity: 0.4; }
+
+#loader { position: fixed; inset: 0; background: var(--bg-dark); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; cursor: pointer; }
+#z-indicator { position: fixed; bottom: 20px; left: 20px; font-size: 9px; letter-spacing: 2px; color: var(--accent); opacity: 0.5; font-family: inherit; pointer-events: none; }
+
+.bpm-subpanel {
+    background: rgba(255,255,255,0.03); border-radius: 12px; padding: 8px 12px;
+    display: flex; flex-direction: column; justify-content: center; gap: 4px;
+}
+.bpm-val { font-size: 10px; color: var(--accent); font-weight: 600; text-align: right; }
+
+/* ---- MIXER TABS ---- */
+.ch-tabs { 
+  display: flex; gap: 5px; margin-bottom: 16px;
+  background: rgba(0,0,0,0.3); border-radius: 12px; padding: 4px;
+}
+.ch-tab {
+  flex: 1; padding: 7px 0; font-size: 9px; letter-spacing: 2px;
+  background: transparent; border: none;
+  border-radius: 8px; color: rgba(255,255,255,0.35); cursor: pointer;
+  transition: all 0.2s; font-family: inherit; text-transform: uppercase;
+  font-weight: 500; text-align: center;
+}
+.ch-tab:hover { color: rgba(255,255,255,0.7); background: rgba(255,255,255,0.05); }
+.ch-tab.active { 
+  background: rgba(255,255,255,0.09); 
+  color: #fff; 
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1);
+}
+/* accent underline on active tab for hierarchy */
+.ch-tab.active::after {
+  content: ''; display: block; height: 2px; width: 20px; margin: 3px auto 0;
+  background: var(--accent); border-radius: 2px;
+}
+.ch-panel { display: none; }
+.ch-panel.active { display: block; }
+
+/* ---- FX TOGGLE ROW ---- */
+.fx-toggle-row { 
+  display: grid; 
+  grid-template-columns: 1fr 1fr;
+  align-items: center; gap: 10px; margin-bottom: 10px; 
+}
+.fx-toggle-row .fx-label { 
+  font-size: 9px; letter-spacing: 1.5px; opacity: 0.55; 
+}
+.fx-toggle-btn {
+  width: 100%; padding: 9px 0; font-size: 9px; letter-spacing: 1.5px; border-radius: 8px;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.55); cursor: pointer; font-family: inherit;
+  transition: all 0.2s; white-space: nowrap; text-align: center;
+}
+.fx-toggle-btn:hover { background: rgba(255,255,255,0.11); color: rgba(255,255,255,0.85); }
+.fx-toggle-btn.active { 
+  background: rgba(70,206,131,0.15); border-color: rgba(70,206,131,0.5); 
+  color: var(--accent); font-weight: 600; 
+}
+.fx-slider-wrap { 
+  display: flex; flex-direction: column; gap: 3px; min-width: 0;
+}
+.fx-slider-wrap input[type=range] { width: 100%; }
+.fx-slider-label { font-size: 8px; opacity: 0.4; letter-spacing: 1px; }
+
+.sound-label {
+  font-size: 8px; opacity: 0.45; letter-spacing: 1.5px; text-transform: uppercase;
+  margin-bottom: 3px;
+}
+</style>
+</head>
+
+<body>
+  <div id="hand-pointer"></div>
+  <div id="z-indicator">CALIBRATING SPATIAL SENSORS...</div>
+
+  <div id="loader">
+    <h1>AEROCORD</h1>
+    <div class="tagline">Expressive Chord Instrument</div>
+    <div style="margin-top: 30px; font-size: 10px; opacity: 0.5; letter-spacing: 4px;">CLICK TO INITIALIZE ENGINE</div>
+  </div>
+
+  <div class="aerocord-container" id="main-container">
+
+    <!-- ═══ LEFT COLUMN ═══ -->
+    <div class="left-col">
+
+      <!-- INSTRUMENT HEADER: logo | chord display | transpose + tap -->
+      <div class="inst-header">
+        <div class="inst-logo">
+          <span class="inst-logo-name">AEROCORD</span>
+          <span class="inst-logo-sub">expressive chord instrument</span>
+        </div>
+        <div class="inst-chord-display">
+          <div class="inst-chord-text">
+            <div class="inst-chord-name" id="chordNameDisplay">—</div>
+            <div class="inst-chord-label">CHORD</div>
+          </div>
+        </div>
+        <div class="inst-controls">
+          <div class="inst-ctrl-group">
+            <div class="inst-ctrl-label">TRANSPOSE</div>
+            <div class="inst-ctrl-row">
+              <button class="inst-ctrl-btn" onclick="shiftTranspose(-1)">▼</button>
+              <span class="inst-ctrl-val" id="transposeDisplay">0</span>
+              <button class="inst-ctrl-btn" onclick="shiftTranspose(1)">▲</button>
+            </div>
+          </div>
+          <div class="inst-divider"></div>
+          <div class="inst-ctrl-group">
+            <div class="inst-ctrl-label">TEMPO</div>
+            <div class="inst-ctrl-row">
+              <span class="inst-ctrl-val" id="tempoDisplay">120</span>
+              <span class="inst-ctrl-unit">BPM</span>
+              <button class="inst-tap-btn" onclick="tapTempo()" id="tapBtn">TAP</button>
+            </div>
+            <input type="range" id="globalBpmSlider" min="60" max="200" step="1" value="120" style="width:120px; margin-top:4px;">
+          </div>
+        </div>
+      </div>
+
+      <button class="settings-toggle" onclick="toggleSettings()" id="toggleBtn" style="width: auto; margin-top:0; margin-bottom:10px;">SHOW MIXER ↓</button>
+
+    <div id="mixer-section" class="collapsed">
+        <div class="mixer-grid">
+
+            <!-- ═══════════════ PAD CHANNEL ═══════════════ -->
+            <div class="mixer-channel">
+                <div class="channel-label">ATMOSPHERE (PAD)</div>
+                <div class="ch-tabs">
+                    <button class="ch-tab active" onclick="switchTab('pad','sound',this)">SOUND</button>
+                    <button class="ch-tab" onclick="switchTab('pad','fx',this)">FX</button>
+                </div>
+
+                <!-- PAD › SOUND -->
+                <div id="pad-sound" class="ch-panel active">
+                    <div class="control-group">
+                        <div style="flex:1; display:flex; flex-direction:column; gap:3px;">
+                            <div class="sound-label">PAD SOUND ENGINE</div>
+                            <select id="padSound">
+                                <option value="warmGlow">Warm Glow — Lush Detuned Pads</option>
+                                <option value="deepSpace">Deep Space — Analog Sine Drone</option>
+                                <option value="choirAngel">Angel Choir — Organic Vocal Formants</option>
+                                <option value="organPipe">Cathedral Organ — Drawbar Pipes</option>
+                                <option value="membraneDrone">Membrane Drone — FM Dense Score Pad</option>
+                                <option value="preparedPiano">Prepared Piano — Metallic Strike & Tone</option>
+                                <option value="hyperPad">Hyper Pad — Octave Stack Micro-Beating</option>
+                                <option value="celloSwell">Cello Swell — Bowed String Ensemble</option>
+                                <option value="tapeDrone">Tape Drone — Lo-fi Analog Warmth</option>
+                                <option value="dxBrass">DX Brass — DX7 FM Brass Swell</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="fx-toggle-row">
+                        <span class="fx-label">VOL</span>
+                        <div class="fx-slider-wrap"><input type="range" id="padVolume" min="0" max="0.5" step="0.01" value="0.2"></div>
+                    </div>
+                    <div style="height:10px;"></div>
+                    <div class="fx-toggle-row">
+                        <button class="fx-toggle-btn" id="shimmerBtn" onclick="toggleShimmer()">SHIMMER</button>
+                        <div class="fx-slider-wrap">
+                            <span class="fx-slider-label">SHIMMER VOL</span>
+                            <input type="range" id="shimmerVolume" min="0" max="0.4" step="0.01" value="0.1">
+                        </div>
+                    </div>
+                    <div class="fx-toggle-row">
+                        <button class="fx-toggle-btn active" id="deepBassBtn" onclick="toggleDeepBass()">DEEP BASS</button>
+                        <div class="fx-slider-wrap">
+                            <span class="fx-slider-label">BASS VOL</span>
+                            <input type="range" id="deepBassVolume" min="0" max="0.8" step="0.01" value="0.35">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PAD › FX -->
+                <div id="pad-fx" class="ch-panel">
+                    <div class="fx-toggle-row">
+                        <button class="fx-toggle-btn active" id="padReverbBtn" onclick="toggleFx('padReverb')">REVERB</button>
+                        <div class="fx-slider-wrap">
+                            <span class="fx-slider-label">REVERB AMOUNT</span>
+                            <input type="range" id="padReverb" min="0" max="1" step="0.01" value="0.4">
+                        </div>
+                    </div>
+                    <div class="fx-toggle-row">
+                        <button class="fx-toggle-btn active" id="padEchoBtn" onclick="toggleFx('padEcho')">ECHO</button>
+                        <div class="fx-slider-wrap">
+                            <div style="display:flex;justify-content:space-between;align-items:center;">
+                                <span class="fx-slider-label">ECHO MIX</span>
+                                <span class="fx-slider-label" style="opacity:1;color:var(--accent);" id="padEchoBpmDisplay">1/4</span>
+                            </div>
+                            <input type="range" id="padEcho" min="0" max="0.8" step="0.01" value="0.2">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;">
+                                <span class="fx-slider-label">SYNC</span>
+                                <select id="padEchoSync" style="font-size:8px;padding:2px 5px;border-radius:6px;width:auto;">
+                                    <option value="0.25">1/4</option>
+                                    <option value="0.5">1/2</option>
+                                    <option value="0.125">1/8</option>
+                                    <option value="0.0625">1/16</option>
+                                    <option value="0.375">3/8 (dotted)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="fx-toggle-row">
+                        <button class="fx-toggle-btn" id="padChorusBtn" onclick="toggleFx('padChorus')">CHORUS</button>
+                        <div class="fx-slider-wrap">
+                            <span class="fx-slider-label">CHORUS DEPTH</span>
+                            <input type="range" id="padChorusDepth" min="0" max="1" step="0.01" value="0.5">
+                        </div>
+                    </div>
+                    <div style="margin-top:6px;display:flex;flex-direction:column;gap:3px;">
+                        <span class="fx-slider-label">CUTOFF</span>
+                        <input type="range" id="padCutoff" min="200" max="20000" step="100" value="20000" style="width:100%;">
+                    </div>
+                    <div style="margin-top:6px;display:flex;flex-direction:column;gap:3px;">
+                        <span class="fx-slider-label">RESONANCE</span>
+                        <input type="range" id="padResonance" min="0" max="18" step="0.1" value="0" style="width:100%;">
+                    </div>
+                </div>
+            </div>
+
+            <!-- ═══════════════ STRUM CHANNEL ═══════════════ -->
+            <div class="mixer-channel">
+                <div class="channel-label">STRUM (PLUCK)</div>
+                <div class="ch-tabs">
+                    <button class="ch-tab active" onclick="switchTab('arp','sound',this)">SOUND</button>
+                    <button class="ch-tab" onclick="switchTab('arp','arp',this)">ARP</button>
+                    <button class="ch-tab" onclick="switchTab('arp','fx',this)">FX</button>
+                </div>
+
+                <!-- STRUM › SOUND -->
+                <div id="arp-sound" class="ch-panel active">
+                    <div class="control-group">
+                        <div style="flex:1; display:flex; flex-direction:column; gap:3px;">
+                            <div class="sound-label">STRUM SOUND ENGINE</div>
+                            <select id="arpSound">
+                                <option value="glassString">Glass String — Harmonic Sines</option>
+                                <option value="harp">Harp — Long Resonant Pluck</option>
+                                <option value="marimba">Marimba — FM Wood Hit</option>
+                                <option value="bells">Music Box — FM Bell Strike</option>
+                                <option value="koto">Koto — Asian Pitch Slide</option>
+                                <option value="vibraphone">Vibraphone — Metallic Motor Tremolo</option>
+                                <option value="kalimba">Kalimba — Thumb Piano FM</option>
+                                <option value="shakuhachi">Shakuhachi — Japanese Breath Flute</option>
+                                <option value="pluckSynth">Pluck Synth — Electronic Filter Pluck</option>
+                                <option value="tibetanBowl">Tibetan Bowl — Slow Inharmonic Beating</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="fx-toggle-row">
+                        <span class="fx-label">VOL</span>
+                        <div class="fx-slider-wrap"><input type="range" id="arpVolume" min="0" max="0.6" step="0.01" value="0.3"></div>
+                    </div>
+
+                    <div style="height:6px;"></div>
+
+                    <!-- DECAY -->
+                    <div style="display:flex;flex-direction:column;gap:3px;margin-bottom:10px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <span class="fx-slider-label">DECAY</span>
+                            <span id="strumDecayDisplay" style="font-size:10px;color:var(--accent);font-weight:600;">1.0×</span>
+                        </div>
+                        <input type="range" id="strumDecay" min="0.15" max="3.0" step="0.05" value="1.0" style="width:100%;">
+                    </div>
+
+                    <!-- OCTAVE TRANSPOSE -->
+                    <div style="display:flex;flex-direction:column;gap:3px;margin-bottom:10px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <span class="fx-slider-label">OCTAVE</span>
+                            <span id="strumOctDisplay" style="font-size:10px;color:var(--accent);font-weight:600;">0</span>
+                        </div>
+                        <input type="range" id="strumOctaveTranspose" min="-2" max="2" step="1" value="0" style="width:100%;">
+                    </div>
+
+                    <!-- STEREO SPREAD -->
+                    <div style="display:flex;flex-direction:column;gap:3px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <span class="fx-slider-label">STEREO SPREAD</span>
+                            <span id="strumSpreadDisplay" style="font-size:10px;color:var(--accent);font-weight:600;">0%</span>
+                        </div>
+                        <input type="range" id="strumSpread" min="0" max="1" step="0.01" value="0" style="width:100%;">
+                    </div>
+                </div>
+
+                <!-- STRUM › ARP -->
+                <div id="arp-arp" class="ch-panel">
+                    <div style="margin-bottom:12px;">
+                        <button class="fx-toggle-btn" id="arpToggleBtn" onclick="toggleArpMode()" style="width:100%;">AUTO-ARP</button>
+                    </div>
+                    <div class="control-group">
+                        <div style="flex:1;display:flex;flex-direction:column;gap:3px;">
+                            <div class="sound-label">PATTERN</div>
+                            <select id="arpPattern">
+                                <option value="up">Up</option>
+                                <option value="down">Down</option>
+                                <option value="updown">Up-Down</option>
+                                <option value="downup">Down-Up</option>
+                                <option value="random">Random</option>
+                                <option value="skip">Skip</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="control-group" style="margin-top:8px;">
+                        <div style="flex:1;display:flex;flex-direction:column;gap:3px;">
+                            <div class="sound-label">SUBDIVISION</div>
+                            <select id="arpSubdiv">
+                                <option value="1">Quarter notes</option>
+                                <option value="2" selected>8th notes</option>
+                                <option value="3">Triplets</option>
+                                <option value="4">16th notes</option>
+                            </select>
+                        </div>
+                    </div>
+                    <!-- VOICES — how many chord notes the arp uses -->
+                    <div style="margin-top:8px; display:flex; flex-direction:column; gap:3px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <span class="fx-slider-label">VOICES</span>
+                            <span id="voicesDisplay" style="font-size:10px;color:var(--accent);font-weight:600;">4</span>
+                        </div>
+                        <input type="range" id="arpVoices" min="1" max="12" step="1" value="4" style="width:100%;">
+                    </div>
+
+                    <!-- SWING — full width -->
+                    <div style="margin-top:8px; display:flex; flex-direction:column; gap:3px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <span class="fx-slider-label">SWING</span>
+                            <span id="swingDisplay" style="font-size:10px;color:var(--accent);font-weight:600;">0%</span>
+                        </div>
+                        <input type="range" id="arpSwing" min="0" max="0.45" step="0.01" value="0" style="width:100%;">
+                    </div>
+
+                    <!-- GATE — full width, compact -->
+                    <div style="margin-top:8px; display:flex; flex-direction:column; gap:3px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <span class="fx-slider-label">GATE</span>
+                            <span id="gateDisplay" style="font-size:10px;color:var(--accent);font-weight:600;">50%</span>
+                        </div>
+                        <input type="range" id="arpGate" min="0.05" max="1.5" step="0.05" value="0.5" style="width:100%;">
+                    </div>
+                </div>
+
+                <!-- STRUM › FX -->
+                <div id="arp-fx" class="ch-panel">
+                    <div class="fx-toggle-row">
+                        <button class="fx-toggle-btn active" id="arpReverbBtn" onclick="toggleFx('arpReverb')">REVERB</button>
+                        <div class="fx-slider-wrap">
+                            <span class="fx-slider-label">REVERB AMOUNT</span>
+                            <input type="range" id="arpReverb" min="0" max="1" step="0.01" value="0.3">
+                        </div>
+                    </div>
+                    <div class="fx-toggle-row">
+                        <button class="fx-toggle-btn active" id="arpEchoBtn" onclick="toggleFx('arpEcho')">ECHO</button>
+                        <div class="fx-slider-wrap">
+                            <div style="display:flex;justify-content:space-between;align-items:center;">
+                                <span class="fx-slider-label">ECHO MIX</span>
+                                <span class="fx-slider-label" style="opacity:1;color:var(--accent);" id="arpEchoBpmDisplay">1/4</span>
+                            </div>
+                            <input type="range" id="arpEcho" min="0" max="0.8" step="0.01" value="0.3">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;">
+                                <span class="fx-slider-label">SYNC</span>
+                                <select id="arpEchoSync" style="font-size:8px;padding:2px 5px;border-radius:6px;width:auto;">
+                                    <option value="0.25">1/4</option>
+                                    <option value="0.5">1/2</option>
+                                    <option value="0.125">1/8</option>
+                                    <option value="0.0625">1/16</option>
+                                    <option value="0.375">3/8 (dotted)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="fx-toggle-row">
+                        <button class="fx-toggle-btn" id="arpChorusBtn" onclick="toggleFx('arpChorus')">CHORUS</button>
+                        <div class="fx-slider-wrap">
+                            <span class="fx-slider-label">CHORUS DEPTH</span>
+                            <input type="range" id="arpChorusDepth" min="0" max="1" step="0.01" value="0.5">
+                        </div>
+                    </div>
+                    <div style="margin-top:6px;display:flex;flex-direction:column;gap:3px;">
+                        <span class="fx-slider-label">CUTOFF</span>
+                        <input type="range" id="arpCutoff" min="200" max="20000" step="100" value="20000" style="width:100%;">
+                    </div>
+                    <div style="margin-top:6px;display:flex;flex-direction:column;gap:3px;">
+                        <span class="fx-slider-label">RESONANCE</span>
+                        <input type="range" id="arpResonance" min="0" max="18" step="0.1" value="0" style="width:100%;">
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="panel-title">ROOT KEY (A, W, S, E, D, F, T, G, Y, H, U, J)</div>
+    <div class="grid-buttons roots-grid" id="roots"></div>
+
+    <div class="panel-title">CHORD ARCHITECTURE (X, C, V, B, N, M, ,)</div>
+    <div class="grid-buttons types-grid" id="types"></div>
+
+    <div class="strum-area" id="keyboard"></div>
+    <footer>Created by u/bosuke - 2026</footer>
+    </div><!-- end left-col -->
+
+  </div><!-- end aerocord-container -->
+
+<script>
+/* ================= GLOBAL STATE ================= */
+let autoArpEnabled = false;
+let shimmerEnabled = false;
+let deepBassEnabled = true;
+let jitterPadEnabled = false; // kept as dummy so playChord references don't break
+let jitterArpEnabled = false;
+let _cachedJitterAmt  = 0;
+let currentArpStep = 0;
+let currentBpm = 120;
+let chordDebounceTimer = null;
+
+let nextNoteTime = 0.0;
+const scheduleAheadTime = 0.1;
+const lookahead = 25.0;
+let timerID;
+
+// ---- RAF visual queue ----
+// Instead of many setTimeout calls for visuals, we push {keyDiv, time}
+// into a queue and drain it in a single rAF loop.
+const visualQueue = [];
+let rafRunning = false;
+function pushVisual(keyDiv, time) {
+    visualQueue.push({ keyDiv, time });
+    if (!rafRunning) { rafRunning = true; requestAnimationFrame(drainVisuals); }
+}
+function drainVisuals() {
+    const now = ctx.currentTime;
+    let i = 0;
+    while (i < visualQueue.length) {
+        const item = visualQueue[i];
+        if (now >= item.time) {
+            item.keyDiv.classList.add('active');
+            setTimeout(() => item.keyDiv.classList.remove('active'), 130);
+            visualQueue.splice(i, 1);
+        } else { i++; }
+    }
+    if (visualQueue.length > 0) requestAnimationFrame(drainVisuals);
+    else rafRunning = false;
+}
+
+// ---- Cached DOM reads for hot paths ----
+// Re-read only when changed by user input, not every scheduler tick.
+let _cachedArpSound   = 'glassString';
+let _cachedArpPattern = 'up';
+let _cachedArpSubdiv  = 2;
+let _cachedArpOctave  = 1; // fixed — oct range control removed
+let _cachedArpGate    = 0.5;
+let _cachedArpSwing   = 0;
+let _cachedArpVoices  = 4;
+let _cachedStrumDecay  = 1.0;   // multiplier 0.2–3.0
+let _cachedStrumOctave = 0;     // -2, -1, 0, +1, +2
+let _cachedStrumSpread = 0.0;   // 0.0 = mono centre, 1.0 = full stereo
+function refreshArpCache() {
+    _cachedArpSound    = document.getElementById('arpSound').value;
+    _cachedArpPattern  = document.getElementById('arpPattern').value;
+    _cachedArpSubdiv   = parseInt(document.getElementById('arpSubdiv').value);
+    _cachedArpGate     = parseFloat(document.getElementById('arpGate').value);
+    _cachedArpSwing    = parseFloat(document.getElementById('arpSwing').value);
+    _cachedArpVoices   = parseInt(document.getElementById('arpVoices').value);
+    _cachedStrumDecay  = parseFloat(document.getElementById('strumDecay').value);
+    _cachedStrumOctave = parseInt(document.getElementById('strumOctaveTranspose').value);
+    _cachedStrumSpread = parseFloat(document.getElementById('strumSpread').value);
+}
+
+/* ================= UI LOGIC ================= */
+function toggleSettings() {
+    const section = document.getElementById('mixer-section');
+    const btn = document.getElementById('toggleBtn');
+    section.classList.toggle('collapsed');
+    btn.textContent = section.classList.contains('collapsed') ? "SHOW MIXER ↓" : "HIDE MIXER ↑";
+}
+
+function toggleArpMode() {
+    autoArpEnabled = !autoArpEnabled;
+    const btn = document.getElementById('arpToggleBtn');
+    btn.classList.toggle('active', autoArpEnabled);
+    if (autoArpEnabled) {
+        currentArpStep = 0;
+        nextNoteTime = ctx.currentTime;
+        scheduler();
+    } else {
+        clearTimeout(timerID);
+    }
+}
+
+// ---- Tab switcher ----
+function switchTab(channel, panel, btn) {
+    // Deactivate all tabs and panels for this channel
+    const allTabs = btn.closest('.ch-tabs').querySelectorAll('.ch-tab');
+    allTabs.forEach(t => t.classList.remove('active'));
+    // Hide all panels for this channel prefix
+    document.querySelectorAll(`[id^="${channel}-"]`).forEach(p => p.classList.remove('active'));
+    // Activate selected
+    btn.classList.add('active');
+    document.getElementById(`${channel}-${panel}`).classList.add('active');
+}
+
+// ---- FX toggles ----
+const _fxEnabled = { padReverb: true, padEcho: true, arpReverb: true, arpEcho: true, padChorus: false, arpChorus: false };
+
+function toggleFx(fxId) {
+    _fxEnabled[fxId] = !_fxEnabled[fxId];
+    const btn = document.getElementById(fxId + 'Btn');
+    btn.classList.toggle('active', _fxEnabled[fxId]);
+    if (fxId === 'padChorus' || fxId === 'arpChorus') {
+        updateChorus();
+    } else {
+        syncVolumes();
+    }
+}
+
+function toggleShimmer() {
+    shimmerEnabled = !shimmerEnabled;
+    document.getElementById('shimmerBtn').classList.toggle('active', shimmerEnabled);
+    playChordDebounced();
+}
+
+function toggleDeepBass() {
+    deepBassEnabled = !deepBassEnabled;
+    document.getElementById('deepBassBtn').classList.toggle('active', deepBassEnabled);
+    playChordDebounced();
+}
+
+// toggleJitter removed — feature replaced by Chorus
+
+/* ================= AUDIO ENGINE ================= */
+const ctx = new (window.AudioContext || window.webkitAudioContext)();
+const master = ctx.createGain(); master.gain.value = 0.7; master.connect(ctx.destination);
+
+const masterLimiter = ctx.createDynamicsCompressor();
+masterLimiter.threshold.setValueAtTime(-3, ctx.currentTime);
+masterLimiter.knee.setValueAtTime(6, ctx.currentTime);
+masterLimiter.ratio.setValueAtTime(12, ctx.currentTime);
+masterLimiter.attack.setValueAtTime(0.003, ctx.currentTime);
+masterLimiter.release.setValueAtTime(0.25, ctx.currentTime);
+masterLimiter.connect(master);
+
+const preMaster = ctx.createGain(); preMaster.gain.value = 0.45;
+preMaster.connect(masterLimiter);
+
+const filterNode = ctx.createBiquadFilter();
+filterNode.type = "lowpass"; filterNode.frequency.value = 20000;
+filterNode.connect(preMaster);
+
+// Individual channel gains
+const padGlobalGain = ctx.createGain(); padGlobalGain.gain.value = 0.6; padGlobalGain.connect(filterNode);
+const arpGlobalGain = ctx.createGain(); arpGlobalGain.gain.value = 0.6; arpGlobalGain.connect(filterNode);
+
+// ---- Pre-computed IR buffers (generated once, reused forever) ----
+function createIR(sec, decay = 2.4) {
+    const len = ctx.sampleRate * sec;
+    const b = ctx.createBuffer(2, len, ctx.sampleRate);
+    for (let c = 0; c < 2; c++) {
+        const d = b.getChannelData(c);
+        for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
+    }
+    return b;
+}
+const IR_PAD = createIR(4);
+const IR_ARP = createIR(3);
+const IR_SHIMMER = createIR(8);
+
+function constantPower(v) { return { dry: Math.cos(v * Math.PI / 2), wet: Math.sin(v * Math.PI / 2) }; }
+
+function createBus(irBuffer, globalNode) {
+    const dry = ctx.createGain(), wet = ctx.createGain(), conv = ctx.createConvolver();
+    conv.buffer = irBuffer;
+    dry.connect(globalNode); conv.connect(wet); wet.connect(globalNode);
+    return { dry, wet, conv };
+}
+
+const padBus     = createBus(IR_PAD,     padGlobalGain);
+const arpBus     = createBus(IR_ARP,     arpGlobalGain);
+const shimmerBus = createBus(IR_SHIMMER, padGlobalGain);
+
+// ---- AUDIO GRAPH (correct order) ----
+// Signal flow per channel:
+// padBus.dry/wet → padGlobalGain → padFilter → filterNode → preMaster → limiter → master
+// Echo: padFilter → echoDelay → echoWet → filterNode  (taps AFTER the channel filter)
+// Chorus: padFilter → chorusDelays → chorusMix → filterNode  (same tap point)
+
+// Step 1: insert per-channel LP filters between globalGain and filterNode
+const padFilter = ctx.createBiquadFilter();
+padFilter.type = 'lowpass'; padFilter.frequency.value = 20000; padFilter.Q.value = 0;
+const arpFilter = ctx.createBiquadFilter();
+arpFilter.type = 'lowpass'; arpFilter.frequency.value = 20000; arpFilter.Q.value = 0;
+padGlobalGain.disconnect(); padGlobalGain.connect(padFilter); padFilter.connect(filterNode);
+arpGlobalGain.disconnect(); arpGlobalGain.connect(arpFilter); arpFilter.connect(filterNode);
+
+// Step 2: BPM-synced echo — tap from padFilter (after disconnect+reconnect above)
+const echoDelayNodes = [];
+function createEchoBpmSynced(tapNode) {
+    const delay = ctx.createDelay(2.0); delay.delayTime.value = 0.5;
+    echoDelayNodes.push(delay);
+    const feedback = ctx.createGain(); feedback.gain.value = 0.2;
+    const fbFilter = ctx.createBiquadFilter(); fbFilter.type = 'lowpass'; fbFilter.frequency.value = 3500;
+    const wet = ctx.createGain(); wet.gain.value = 0;
+    tapNode.connect(delay);
+    delay.connect(fbFilter); fbFilter.connect(feedback); feedback.connect(delay);
+    delay.connect(wet); wet.connect(filterNode);
+    return wet;
+}
+const padEchoBpmGain = createEchoBpmSynced(padFilter);
+const arpEchoBpmGain = createEchoBpmSynced(arpFilter);
+
+function updateEchoTimes() {
+    const beat = 60 / currentBpm;
+    const padSel = document.getElementById('padEchoSync');
+    const arpSel = document.getElementById('arpEchoSync');
+    if (!padSel || !arpSel) return;
+    // values are fractions of a whole note (1/4 = 0.25 → 1 beat at 4/4)
+    const padTime = beat * parseFloat(padSel.value) * 4;
+    const arpTime = beat * parseFloat(arpSel.value) * 4;
+    if(echoDelayNodes[0]) echoDelayNodes[0].delayTime.setTargetAtTime(Math.min(padTime, 1.9), ctx.currentTime, 0.05);
+    if(echoDelayNodes[1]) echoDelayNodes[1].delayTime.setTargetAtTime(Math.min(arpTime, 1.9), ctx.currentTime, 0.05);
+    document.getElementById('padEchoBpmDisplay').textContent = padSel.options[padSel.selectedIndex].text + ' @ ' + currentBpm + ' BPM';
+    document.getElementById('arpEchoBpmDisplay').textContent = arpSel.options[arpSel.selectedIndex].text + ' @ ' + currentBpm + ' BPM';
+}
+
+// Step 3: Chorus — tap from same filter output
+function createChorus(tapNode) {
+    const mix = ctx.createGain(); mix.gain.value = 0;
+    const voices = [
+        { rate: 0.51, depth: 0.004 },
+        { rate: 0.89, depth: 0.006 },
+        { rate: 1.37, depth: 0.003 },
+    ];
+    voices.forEach(v => {
+        const delay = ctx.createDelay(0.05);
+        delay.delayTime.value = 0.008;
+        const lfo = ctx.createOscillator(); lfo.type = 'sine';
+        lfo.frequency.value = v.rate;
+        const lfoGain = ctx.createGain(); lfoGain.gain.value = v.depth;
+        lfo.connect(lfoGain); lfoGain.connect(delay.delayTime);
+        tapNode.connect(delay); delay.connect(mix);
+        lfo.start();
+    });
+    mix.connect(filterNode);
+    return mix;
+}
+const padChorusMix = createChorus(padFilter);
+const arpChorusMix = createChorus(arpFilter);
+
+function updateChorus() {
+    const padDepth = _fxEnabled.padChorus ? parseFloat(document.getElementById('padChorusDepth').value) * 0.35 : 0;
+    const arpDepth = _fxEnabled.arpChorus ? parseFloat(document.getElementById('arpChorusDepth').value) * 0.35 : 0;
+    padChorusMix.gain.setTargetAtTime(padDepth, ctx.currentTime, 0.05);
+    arpChorusMix.gain.setTargetAtTime(arpDepth, ctx.currentTime, 0.05);
+}
+
+// ---- Pre-computed assets for strum sounds (created once) ----
+// Karplus-Strong noise buffer pool: keyed by buffer size
+const _ksBufferCache = new Map();
+function getKSBuffer(freq) {
+    const size = Math.max(2, Math.round(ctx.sampleRate / freq));
+    if (!_ksBufferCache.has(size)) {
+        const buf = ctx.createBuffer(1, size, ctx.sampleRate);
+        const data = buf.getChannelData(0);
+        for (let i = 0; i < size; i++) data[i] = Math.random() * 2 - 1;
+        _ksBufferCache.set(size, buf);
+    }
+    return _ksBufferCache.get(size);
+}
+
+// Noise buffer for pizzicato (20ms, pre-made once)
+const _pizzNoiseBuffer = (() => {
+    const buf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * 0.02), ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    return buf;
+})();
+
+// Shared 2s noise buffer for shakuhachi — created once, reused every note
+const _shakNoiseBuffer = (() => {
+    const buf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    return buf;
+})();
+
+// Electric guitar waveshaper curve (computed once)
+const _guitarCurve = (() => {
+    const curve = new Float32Array(256);
+    for (let i = 0; i < 256; i++) {
+        const x = (i * 2) / 256 - 1;
+        curve[i] = (3 + 30) * x / (Math.PI + 30 * Math.abs(x));
+    }
+    return curve;
+})();
+
+function syncVolumes() {
+    padGlobalGain.gain.setTargetAtTime(parseFloat(padVolume.value) * 0.75, ctx.currentTime, 0.05);
+    arpGlobalGain.gain.setTargetAtTime(parseFloat(arpVolume.value) * 0.75, ctx.currentTime, 0.05);
+    padEchoBpmGain.gain.value = _fxEnabled.padEcho ? parseFloat(padEcho.value) : 0;
+    arpEchoBpmGain.gain.value = _fxEnabled.arpEcho ? parseFloat(arpEcho.value) : 0;
+    updateReverb(padBus, _fxEnabled.padReverb ? parseFloat(padReverb.value) : 0, 1.2);
+    updateReverb(arpBus, _fxEnabled.arpReverb ? parseFloat(arpReverb.value) : 0, 1.1);
+    updateChorus();
+    updateEchoTimes();
+    padFilter.frequency.setTargetAtTime(parseFloat(document.getElementById('padCutoff').value), ctx.currentTime, 0.05);
+    padFilter.Q.setTargetAtTime(parseFloat(document.getElementById('padResonance').value), ctx.currentTime, 0.05);
+    arpFilter.frequency.setTargetAtTime(parseFloat(document.getElementById('arpCutoff').value), ctx.currentTime, 0.05);
+    arpFilter.Q.setTargetAtTime(parseFloat(document.getElementById('arpResonance').value), ctx.currentTime, 0.05);
+}
+
+/* ================= ADVANCED PAD SOUND ENGINES ================= */
+
+// 1. WARM GLOW — Supersaw-style detuned oscillators
+function synth_warmGlow(freq, targetGain, bus, startTime) {
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, startTime);
+    g.gain.setTargetAtTime(targetGain * 0.35, startTime, 0.15);
+    const oscs = [];
+    const detunes = [-12, -6, -2, 0, 2, 6, 12];
+    detunes.forEach(det => {
+        const o = ctx.createOscillator();
+        o.type = 'sawtooth';
+        o.frequency.setValueAtTime(freq, startTime);
+        o.detune.setValueAtTime(det, startTime);
+        const individualGain = ctx.createGain();
+        individualGain.gain.value = 0.4;
+        o.connect(individualGain); individualGain.connect(g);
+        o.start(startTime); oscs.push(o);
+    });
+    // LP cutoff lowered to freq*2.8 — passes fundamental + 2nd harmonic only.
+    // This removes the distracting upper partials while keeping warmth.
+    // Slight resonance (Q=0.4) adds a gentle body to the filtered tone.
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass'; lp.frequency.value = freq * 2.8; lp.Q.value = 0.4;
+    g.connect(lp); lp.connect(bus.dry); lp.connect(bus.conv);
+    stealVoiceIfNeeded();
+    padVoices.push({oscs, gainNode: g});
+}
+
+// 2. DEEP SPACE — Analog drone: pitch drift + bandpass noise + tape saturation
+// Inspired by Klaus Schulze, early Tangerine Dream, Eno's "Discreet Music".
+// Key difference from Warm Glow: pure sines + analog imperfection, no sawtooth at all.
+function synth_deepSpace(freq, targetGain, bus, startTime) {
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, startTime);
+    g.gain.setTargetAtTime(targetGain * 0.38, startTime, 0.5);
+    const oscs = [];
+
+    // Three sine layers — pure, no harmonics, very analog feel
+    // Each has independent slow pitch drift LFO at slightly different rates
+    const layers = [
+        { mult: 1,    gain: 0.55, driftRate: 0.04, driftAmt: freq * 0.003 },
+        { mult: 2,    gain: 0.25, driftRate: 0.061, driftAmt: freq * 0.002 },
+        { mult: 0.5,  gain: 0.45, driftRate: 0.027, driftAmt: freq * 0.004 },
+    ];
+    layers.forEach(layer => {
+        const o = ctx.createOscillator(); o.type = 'sine';
+        o.frequency.setValueAtTime(freq * layer.mult, startTime);
+        // Pitch drift — analog oscillators were never perfectly stable
+        const driftLfo = ctx.createOscillator(); driftLfo.type = 'sine';
+        driftLfo.frequency.value = layer.driftRate;
+        const driftGain = ctx.createGain(); driftGain.gain.value = layer.driftAmt;
+        driftLfo.connect(driftGain); driftGain.connect(o.frequency);
+        driftLfo.start(startTime); oscs.push(driftLfo);
+        const gv = ctx.createGain(); gv.gain.value = layer.gain;
+        o.connect(gv); gv.connect(g);
+        o.start(startTime); oscs.push(o);
+    });
+
+    // Narrow bandpass noise — creates a tonal breath texture between the sines
+    // This is what makes analog synths sound "alive" vs digital
+    const noiseLen = ctx.sampleRate * 2;
+    const noiseBuf = ctx.createBuffer(1, noiseLen, ctx.sampleRate);
+    const nd = noiseBuf.getChannelData(0);
+    for(let i = 0; i < noiseLen; i++) nd[i] = Math.random() * 2 - 1;
+    const ns = ctx.createBufferSource(); ns.buffer = noiseBuf; ns.loop = true;
+    const nbp = ctx.createBiquadFilter(); nbp.type = 'bandpass';
+    nbp.frequency.value = freq * 1.5; nbp.Q.value = 12;
+    const nGain = ctx.createGain(); nGain.gain.value = 0.06;
+    ns.connect(nbp); nbp.connect(nGain); nGain.connect(g);
+    ns.start(startTime); oscs.push(ns);
+
+    // Tape saturation — soft tanh clip for warmth
+    const ws = ctx.createWaveShaper();
+    const curve = new Float32Array(256);
+    for(let i = 0; i < 256; i++) {
+        const x = (i * 2) / 256 - 1;
+        curve[i] = Math.tanh(x * 1.5) / Math.tanh(1.5);
+    }
+    ws.curve = curve;
+
+    // Very slow AM at two prime-ratio rates — never perfectly rhythmic
+    const am1 = ctx.createOscillator(); am1.frequency.value = 0.08;
+    const am1g = ctx.createGain(); am1g.gain.value = 0.06;
+    am1.connect(am1g); am1g.connect(g.gain); am1.start(startTime); oscs.push(am1);
+
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass';
+    lp.frequency.value = freq * 3.5; lp.Q.value = 0.7;
+    g.connect(ws); ws.connect(lp); lp.connect(bus.dry); lp.connect(bus.conv);
+    stealVoiceIfNeeded();
+    padVoices.push({oscs, gainNode: g});
+}
+
+// 3. ANGEL CHOIR — Organic vocal synthesis: saw source → formant filters + sub body
+function synth_choirAngel(freq, targetGain, bus, startTime) {
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, startTime);
+    g.gain.setTargetAtTime(targetGain * 0.55, startTime, 0.35);
+    const oscs = [];
+
+    // 4 independent "singers" — each slightly detuned, staggered entry
+    const singers = [
+        { detune: -8,  formants: [730, 1090, 2440],  delay: 0.0  },
+        { detune:  5,  formants: [800, 1150, 2800],  delay: 0.04 },
+        { detune: -3,  formants: [700, 1200, 2500],  delay: 0.08 },
+        { detune: 10,  formants: [760, 1050, 2350],  delay: 0.02 },
+    ];
+
+    singers.forEach(singer => {
+        const t = startTime + singer.delay;
+        const saw = ctx.createOscillator(); saw.type = 'sawtooth';
+        saw.frequency.setValueAtTime(freq, t);
+        saw.detune.setValueAtTime(singer.detune, t);
+
+        // Softer clip — less distortion, more body
+        const preClip = ctx.createWaveShaper();
+        const clipCurve = new Float32Array(128);
+        for(let i = 0; i < 128; i++) {
+            const x = (i * 2) / 128 - 1;
+            clipCurve[i] = Math.tanh(x * 1.4) * 0.75; // gentler than 2.5
+        }
+        preClip.curve = clipCurve;
+
+        // Formant filters — only F1 and F2 (F3 was adding harshness)
+        const formantOut = ctx.createGain(); formantOut.gain.value = 0.38;
+        singer.formants.slice(0, 2).forEach((fFreq, fi) => {
+            const bp = ctx.createBiquadFilter(); bp.type = 'bandpass';
+            bp.frequency.value = fFreq;
+            bp.Q.value = fi === 0 ? 3 : 6; // lower Q = softer, wider resonance
+            const fg = ctx.createGain(); fg.gain.value = fi === 0 ? 1.0 : 0.5;
+            saw.connect(preClip); preClip.connect(bp); bp.connect(fg); fg.connect(formantOut);
+        });
+        formantOut.connect(g);
+        saw.start(t); oscs.push(saw);
+
+        // Vibrato per singer — enters gradually
+        const vibLfo = ctx.createOscillator(); vibLfo.frequency.value = 4.8 + Math.random() * 0.8;
+        const vibGain = ctx.createGain();
+        vibGain.gain.setValueAtTime(0, t);
+        vibGain.gain.setTargetAtTime(freq * 0.005, t + 0.5, 0.6);
+        vibLfo.connect(vibGain); vibGain.connect(saw.frequency);
+        vibLfo.start(t); oscs.push(vibLfo);
+    });
+
+    // Sub sine for body — this is what was missing, fills the low end under the formants
+    const sub = ctx.createOscillator(); sub.type = 'sine';
+    sub.frequency.setValueAtTime(freq, startTime);
+    const subG = ctx.createGain(); subG.gain.value = 0.4;
+    sub.connect(subG); subG.connect(g);
+    sub.start(startTime); oscs.push(sub);
+
+    // Sub octave — warmth and depth
+    const sub2 = ctx.createOscillator(); sub2.type = 'sine';
+    sub2.frequency.setValueAtTime(freq * 0.5, startTime);
+    const sub2G = ctx.createGain(); sub2G.gain.value = 0.2;
+    sub2.connect(sub2G); sub2G.connect(g);
+    sub2.start(startTime); oscs.push(sub2);
+
+    // Breath noise — reduced drastically (was too loud)
+    const breathLen = ctx.sampleRate * 2;
+    const breathBuf = ctx.createBuffer(1, breathLen, ctx.sampleRate);
+    const bd = breathBuf.getChannelData(0);
+    for(let i = 0; i < breathLen; i++) bd[i] = Math.random() * 2 - 1;
+    const bs = ctx.createBufferSource(); bs.buffer = breathBuf; bs.loop = true;
+    const bhp = ctx.createBiquadFilter(); bhp.type = 'highpass'; bhp.frequency.value = 3500;
+    const blp = ctx.createBiquadFilter(); blp.type = 'lowpass'; blp.frequency.value = 7000;
+    const bg = ctx.createGain(); bg.gain.value = 0.008; // much quieter than before (was 0.03)
+    bs.connect(bhp); bhp.connect(blp); blp.connect(bg); bg.connect(g);
+    bs.start(startTime); oscs.push(bs);
+
+    // LP to smooth overall tone
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 4000; lp.Q.value = 0.5;
+    g.connect(lp); lp.connect(bus.dry); lp.connect(bus.conv);
+    stealVoiceIfNeeded();
+    padVoices.push({oscs, gainNode: g});
+}
+
+// 4. CATHEDRAL ORGAN — Additive harmonics (drawbar organ) — slower attack for ambient use
+function synth_organPipe(freq, targetGain, bus, startTime) {
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, startTime);
+    // Slower attack: 0.4s time constant instead of 0.02 — sounds like a real pipe organ swell
+    g.gain.setTargetAtTime(targetGain * 0.38, startTime, 0.4);
+    const oscs = [];
+    const drawbars = [
+        {mult: 1,   amp: 1.0},
+        {mult: 2,   amp: 0.7},
+        {mult: 3,   amp: 0.5},
+        {mult: 4,   amp: 0.4},
+        {mult: 6,   amp: 0.3},
+        {mult: 8,   amp: 0.2},
+        {mult: 0.5, amp: 0.5},
+    ];
+    drawbars.forEach(d => {
+        const o = ctx.createOscillator(); o.type = 'sine';
+        o.frequency.setValueAtTime(freq * d.mult, startTime);
+        const gv = ctx.createGain(); gv.gain.value = d.amp * 0.12;
+        o.connect(gv); gv.connect(g);
+        o.start(startTime); oscs.push(o);
+    });
+    // Slower rotary: 0.25 Hz (leslie slow mode) instead of 0.8
+    const rotaryLfo = ctx.createOscillator(); rotaryLfo.frequency.value = 0.25;
+    const rotGain = ctx.createGain(); rotGain.gain.value = 0.06;
+    rotaryLfo.connect(rotGain); rotGain.connect(g.gain);
+    rotaryLfo.start(startTime); oscs.push(rotaryLfo);
+    g.connect(bus.dry); g.connect(bus.conv);
+    stealVoiceIfNeeded();
+    padVoices.push({oscs, gainNode: g});
+}
+
+// 5. MEMBRANE DRONE — Dense FM low-mid pad (Jóhann Jóhannsson / Arrival / Sicario)
+// Inspired by the sound design of Jóhann Jóhannsson and Hans Zimmer's darker scores.
+// Technique: multiple FM pairs at low carrier ratios create a dense, warm, slightly
+// metallic texture that lives in the low-mid range — not subby, not bright, just DENSE.
+// The key is stacked FM operators slightly detuned from each other, creating slow beating.
+function synth_membraneDrone(freq, targetGain, bus, startTime) {
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, startTime);
+    g.gain.setTargetAtTime(targetGain * 0.42, startTime, 0.6);
+    const oscs = [];
+
+    // FM pairs — ratios kept close to harmonic (1, 2, 0.5) so sidebands land
+    // near chord tones. modDepth dramatically reduced to avoid wild dissonance.
+    const fmPairs = [
+        { cRatio: 1,   mRatio: 1.0,  modDepth: 0.15, carGain: 0.45, detune: -4 },
+        { cRatio: 1,   mRatio: 2.0,  modDepth: 0.10, carGain: 0.35, detune:  3 },
+        { cRatio: 2,   mRatio: 2.0,  modDepth: 0.08, carGain: 0.20, detune:  0 },
+        { cRatio: 0.5, mRatio: 1.0,  modDepth: 0.18, carGain: 0.38, detune: -2 },
+    ];
+
+    fmPairs.forEach(pair => {
+        const carrier = ctx.createOscillator(); carrier.type = 'sine';
+        carrier.frequency.setValueAtTime(freq * pair.cRatio, startTime);
+        carrier.detune.setValueAtTime(pair.detune, startTime);
+
+        const modulator = ctx.createOscillator(); modulator.type = 'sine';
+        modulator.frequency.setValueAtTime(freq * pair.mRatio, startTime);
+
+        // Gentle modulation envelope — just enough movement to feel alive
+        const modGain = ctx.createGain();
+        modGain.gain.setValueAtTime(freq * pair.modDepth * 1.8, startTime);
+        modGain.gain.setTargetAtTime(freq * pair.modDepth * 0.5, startTime + 0.4, 0.5);
+        modulator.connect(modGain); modGain.connect(carrier.frequency);
+
+        const cg = ctx.createGain(); cg.gain.value = pair.carGain;
+        carrier.connect(cg); cg.connect(g);
+        carrier.start(startTime); modulator.start(startTime);
+        oscs.push(carrier, modulator);
+    });
+
+    // Sub sine — anchors in the low end
+    const sub = ctx.createOscillator(); sub.type = 'sine';
+    sub.frequency.setValueAtTime(freq * 0.5, startTime);
+    const subG = ctx.createGain(); subG.gain.value = 0.4;
+    sub.connect(subG); subG.connect(g);
+    sub.start(startTime); oscs.push(sub);
+
+    // Very slow pitch drift
+    const driftLfo = ctx.createOscillator(); driftLfo.frequency.value = 0.03;
+    const driftGain = ctx.createGain(); driftGain.gain.value = freq * 0.003;
+    driftLfo.connect(driftGain);
+    oscs.filter(o => o instanceof OscillatorNode).forEach(o => {
+        try { driftGain.connect(o.frequency); } catch(e) {}
+    });
+    driftLfo.start(startTime); oscs.push(driftLfo);
+
+    // Slow AM breathing
+    const amLfo = ctx.createOscillator(); amLfo.frequency.value = 0.09;
+    const amG = ctx.createGain(); amG.gain.value = 0.06;
+    amLfo.connect(amG); amG.connect(g.gain);
+    amLfo.start(startTime); oscs.push(amLfo);
+
+    // LP tighter — cuts FM sidebands before they get harsh
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass';
+    lp.frequency.value = freq * 3.5; lp.Q.value = 0.8;
+    g.connect(lp); lp.connect(bus.dry); lp.connect(bus.conv);
+    stealVoiceIfNeeded();
+    padVoices.push({oscs, gainNode: g});
+}
+
+// PREPARED PIANO — inharmonic FM attack that decays into a pure tone
+// Like a piano string with a metal object resting on it: bright metallic click
+// on the attack, then the object lifts and only the clean tone remains.
+// 6 nodes. Cinematic, percussive, unique in the set.
+function synth_preparedPiano(freq, targetGain, bus, startTime) {
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, startTime);
+    g.gain.setTargetAtTime(targetGain * 0.55, startTime, 0.005); // fast attack — like a strike
+    g.gain.setTargetAtTime(targetGain * 0.28, startTime + 0.08, 0.3); // settles into sustain
+    const oscs = [];
+
+    // Carrier — the fundamental tone
+    const carrier = ctx.createOscillator(); carrier.type = 'sine';
+    carrier.frequency.setValueAtTime(freq, startTime);
+
+    // Modulator with inharmonic ratio (2.756 — same as Tibetan bowl partial)
+    // Creates the metallic "prepared" quality on the attack
+    const mod = ctx.createOscillator(); mod.type = 'sine';
+    mod.frequency.setValueAtTime(freq * 2.756, startTime);
+
+    // Modulation envelope — high at attack, decays to near zero
+    // This is the "object lifting off the string" effect
+    const modG = ctx.createGain();
+    modG.gain.setValueAtTime(freq * 3.5, startTime);
+    modG.gain.exponentialRampToValueAtTime(freq * 0.02, startTime + 0.6);
+    mod.connect(modG); modG.connect(carrier.frequency);
+
+    // Second partial — octave, much softer, gives body
+    const partial = ctx.createOscillator(); partial.type = 'sine';
+    partial.frequency.setValueAtTime(freq * 2, startTime);
+    const partialG = ctx.createGain();
+    partialG.gain.setValueAtTime(0.18, startTime);
+    partialG.gain.setTargetAtTime(0.06, startTime + 0.1, 0.4);
+    partial.connect(partialG); partialG.connect(g);
+    partial.start(startTime); oscs.push(partial);
+
+    // Main carrier output
+    const cG = ctx.createGain(); cG.gain.value = 0.75;
+    carrier.connect(cG); cG.connect(g);
+    carrier.start(startTime); mod.start(startTime);
+    oscs.push(carrier, mod);
+
+    // LP — removes any harsh FM sidebands at the tail
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass';
+    lp.frequency.value = freq * 6; lp.Q.value = 0.5;
+    g.connect(lp); lp.connect(bus.dry); lp.connect(bus.conv);
+    stealVoiceIfNeeded();
+    padVoices.push({oscs, gainNode: g});
+}
+
+// 7. HYPER PAD — Octave stacks with micro-detuning (ultra-slow beating)
+// Technique: identical sine waves stacked across 4 octaves, each pair separated
+// by fractions of a cent. The tiny frequency differences create very slow amplitude
+// beating — the pad seems to "breathe" and shimmer on its own without any LFO.
+// When you have multiple beating rates that don't sync, the result is hypnotic
+// and never repeats. Inspired by La Monte Young's "Dream Chord" and
+// contemporary producers like Jon Hopkins, Floating Points.
+function synth_hyperPad(freq, targetGain, bus, startTime) {
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, startTime);
+    g.gain.setTargetAtTime(targetGain * 0.45, startTime, 0.4);
+    const oscs = [];
+
+    // 4 octave layers, each with 3 sines: base, +0.15 cent, -0.11 cent
+    // The different offsets per octave mean each layer beats at a different rate
+    // e.g. at 440Hz: beat rate = 440 * 0.0015 = 0.66 Hz (takes 1.5s per cycle)
+    // at 880Hz: beat rate = 880 * 0.0015 = 1.32 Hz — never lock in together
+    const octaveLayers = [
+        { mult: 0.5,  amp: 0.55, offsets: [0, 0.12,  -0.09]  },
+        { mult: 1,    amp: 0.50, offsets: [0, 0.15,  -0.11]  },
+        { mult: 2,    amp: 0.30, offsets: [0, 0.18,  -0.14]  },
+        { mult: 4,    amp: 0.15, offsets: [0, 0.22,  -0.17]  },
+    ];
+
+    octaveLayers.forEach(layer => {
+        layer.offsets.forEach(centOffset => {
+            const o = ctx.createOscillator(); o.type = 'sine';
+            o.frequency.setValueAtTime(freq * layer.mult, startTime);
+            // cents offset — tiny enough to create slow beating, not noticeable as detuning
+            o.detune.setValueAtTime(centOffset, startTime);
+            const gv = ctx.createGain(); gv.gain.value = layer.amp * 0.18;
+            o.connect(gv); gv.connect(g);
+            o.start(startTime); oscs.push(o);
+        });
+    });
+
+    // Gentle LP — remove any digital harshness from the upper octave
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass';
+    lp.frequency.value = freq * 9; lp.Q.value = 0.3;
+    g.connect(lp); lp.connect(bus.dry); lp.connect(bus.conv);
+    stealVoiceIfNeeded();
+    padVoices.push({oscs, gainNode: g});
+}
+
+// 8. TAPE DRONE — Lo-fi analog warmth (Boards of Canada / Aphex Twin ambient)
+// Combines: slow-detuned oscillators + band-limited noise (tape hiss simulation)
+// + a waveshaper for tape saturation + very slow pitch flutter
+function synth_tapeDrone(freq, targetGain, bus, startTime) {
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, startTime);
+    g.gain.setTargetAtTime(targetGain * 0.35, startTime, 0.5);
+    const oscs = [];
+
+    // Core drone: triangle waves (warmer/rounder than saw, less harsh)
+    [-7, 0, 7, 12].forEach(det => {
+        const o = ctx.createOscillator(); o.type = 'triangle';
+        o.frequency.setValueAtTime(freq, startTime);
+        o.detune.setValueAtTime(det, startTime);
+        const gv = ctx.createGain(); gv.gain.value = 0.25;
+        o.connect(gv); gv.connect(g);
+        o.start(startTime); oscs.push(o);
+    });
+
+    // Sub octave — lo-fi always needs sub warmth
+    const sub = ctx.createOscillator(); sub.type = 'sine';
+    sub.frequency.setValueAtTime(freq * 0.5, startTime);
+    const subG = ctx.createGain(); subG.gain.value = 0.35;
+    sub.connect(subG); subG.connect(g);
+    sub.start(startTime); oscs.push(sub);
+
+    // Tape flutter LFO — very slow random-feeling pitch wobble
+    const flutterLfo = ctx.createOscillator(); flutterLfo.frequency.value = 0.07;
+    const flutterGain = ctx.createGain(); flutterGain.gain.value = freq * 0.006;
+    flutterLfo.connect(flutterGain);
+    oscs.forEach(o => { try { flutterGain.connect(o.frequency); } catch(e) {} });
+    flutterLfo.start(startTime); oscs.push(flutterLfo);
+
+    // Tape saturation: soft waveshaper — makes it feel analog/warm
+    const ws = ctx.createWaveShaper();
+    const curve = new Float32Array(256);
+    for(let i = 0; i < 256; i++) {
+        const x = (i * 2) / 256 - 1;
+        curve[i] = Math.tanh(x * 1.8) / Math.tanh(1.8); // soft tanh clip
+    }
+    ws.curve = curve;
+
+    // Tape hiss: white noise filtered to high freq only (barely audible texture)
+    const hissBuffer = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
+    const hd = hissBuffer.getChannelData(0);
+    for(let i = 0; i < hd.length; i++) hd[i] = Math.random() * 2 - 1;
+    const hissSource = ctx.createBufferSource();
+    hissSource.buffer = hissBuffer; hissSource.loop = true;
+    const hissHp = ctx.createBiquadFilter(); hissHp.type = 'highpass'; hissHp.frequency.value = 6000;
+    const hissG = ctx.createGain(); hissG.gain.value = 0.025; // very subtle
+    hissSource.connect(hissHp); hissHp.connect(hissG); hissG.connect(g);
+    hissSource.start(startTime); oscs.push(hissSource);
+
+    // Warm LP filter — lo-fi always rolls off the highs
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass';
+    lp.frequency.value = freq * 5; lp.Q.value = 0.8;
+
+    g.connect(ws); ws.connect(lp); lp.connect(bus.dry); lp.connect(bus.conv);
+    stealVoiceIfNeeded();
+    padVoices.push({oscs, gainNode: g});
+}
+
+// 9. DX BRASS — Yamaha DX7 "Brass 1" style FM synthesis
+// The DX7 Brass preset (1983) defined the sound of an entire decade of pop and film music.
+// It uses a specific FM algorithm: two modulators stacked on a carrier, with the
+// first modulator's envelope creating the "bite" of the brass attack, and the
+// second providing the sustained harmonic richness.
+// Used by: Michael Jackson "Human Nature", Sade, countless 80s/90s soundtracks.
+// As a pad it becomes lush and warm — less stab, more swell.
+function synth_dxBrass(freq, targetGain, bus, startTime) {
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, startTime);
+    g.gain.setTargetAtTime(targetGain * 0.46, startTime, 0.25);
+    const oscs = [];
+
+    // DX7 Brass Algorithm: Op6→Op5→Op4 (carrier), Op3→Op2→Op1 (carrier)
+    // Simplified to two FM chains, each with one carrier and two modulators
+    const chains = [
+        { cFreq: freq,       m1Freq: freq * 1.0,  m2Freq: freq * 14.0, detune:  0  },
+        { cFreq: freq,       m1Freq: freq * 1.0,  m2Freq: freq * 14.0, detune:  4  },
+        { cFreq: freq * 2,   m1Freq: freq * 2.0,  m2Freq: freq * 1.0,  detune: -3  },
+    ];
+
+    chains.forEach(chain => {
+        // Carrier
+        const carrier = ctx.createOscillator(); carrier.type = 'sine';
+        carrier.frequency.setValueAtTime(chain.cFreq, startTime);
+        carrier.detune.setValueAtTime(chain.detune, startTime);
+
+        // Modulator 1 — the "body" modulator, stays present throughout
+        const mod1 = ctx.createOscillator(); mod1.type = 'sine';
+        mod1.frequency.setValueAtTime(chain.m1Freq, startTime);
+        const mod1G = ctx.createGain();
+        mod1G.gain.setValueAtTime(freq * 0.3, startTime);
+        mod1G.gain.setTargetAtTime(freq * 0.15, startTime + 0.5, 0.8); // settles to warmth
+        mod1.connect(mod1G); mod1G.connect(carrier.frequency);
+
+        // Modulator 2 — the "bite" modulator, fast decay creates the brass edge
+        const mod2 = ctx.createOscillator(); mod2.type = 'sine';
+        mod2.frequency.setValueAtTime(chain.m2Freq, startTime);
+        const mod2G = ctx.createGain();
+        mod2G.gain.setValueAtTime(freq * 2.5, startTime);      // high initial modulation = bite
+        mod2G.gain.exponentialRampToValueAtTime(freq * 0.02, startTime + 0.8); // fades fast
+        mod2.connect(mod2G); mod2G.connect(mod1.frequency); // mod2 modulates mod1
+
+        const cg = ctx.createGain(); cg.gain.value = 0.28;
+        carrier.connect(cg); cg.connect(g);
+
+        carrier.start(startTime); mod1.start(startTime); mod2.start(startTime);
+        oscs.push(carrier, mod1, mod2);
+    });
+
+    // Sub octave sine — gives the brass pad body without mud
+    const sub = ctx.createOscillator(); sub.type = 'sine';
+    sub.frequency.setValueAtTime(freq * 0.5, startTime);
+    const subG = ctx.createGain(); subG.gain.value = 0.3;
+    sub.connect(subG); subG.connect(g);
+    sub.start(startTime); oscs.push(sub);
+
+    // Slow chorus LFO — makes it feel like a section, not a solo instrument
+    const chorusLfo = ctx.createOscillator(); chorusLfo.frequency.value = 0.18;
+    const chorusG = ctx.createGain(); chorusG.gain.value = freq * 0.002;
+    chorusLfo.connect(chorusG);
+    oscs.filter(o => o instanceof OscillatorNode).slice(0, 6).forEach(o => {
+        try { chorusG.connect(o.frequency); } catch(e) {}
+    });
+    chorusLfo.start(startTime); oscs.push(chorusLfo);
+
+    // Warm LP — brass doesn't need harsh highs as a pad
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass';
+    lp.frequency.value = freq * 6; lp.Q.value = 0.8;
+    g.connect(lp); lp.connect(bus.dry); lp.connect(bus.conv);
+    stealVoiceIfNeeded();
+    padVoices.push({oscs, gainNode: g});
+}
+
+// 8. VINTAGE EP — Rhodes/DX7-style FM electric piano — soft attack, long sustain
+// CELLO SWELL — bowed string simulation with slow attack and natural vibrato
+// Sawtooth through a resonant LP that opens slowly, vibrato entering after ~1s.
+// Warm, full, versatile. The most "orchestral" pad in the set.
+function synth_celloSwell(freq, targetGain, bus, startTime) {
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, startTime);
+    g.gain.setTargetAtTime(targetGain * 0.48, startTime, 0.8); // bowing attack — 0.8s to bloom
+    const oscs = [];
+
+    // Main bow — sawtooth, the richest wave for strings
+    const saw = ctx.createOscillator(); saw.type = 'sawtooth';
+    saw.frequency.setValueAtTime(freq, startTime);
+
+    // Second saw slightly detuned — ensemble / section feel
+    const saw2 = ctx.createOscillator(); saw2.type = 'sawtooth';
+    saw2.frequency.setValueAtTime(freq, startTime);
+    saw2.detune.setValueAtTime(6, startTime); // 6 cents — tight ensemble
+
+    // Vibrato — enters late, like a real player settling into the note
+    const vib = ctx.createOscillator(); vib.frequency.value = 5.2;
+    const vibG = ctx.createGain();
+    vibG.gain.setValueAtTime(0, startTime);
+    vibG.gain.setTargetAtTime(freq * 0.008, startTime + 1.0, 0.4); // vibrato fades in at 1s
+    vib.connect(vibG); vibG.connect(saw.frequency); vibG.connect(saw2.frequency);
+    vib.start(startTime); oscs.push(vib);
+
+    // LP filter that opens slowly — simulates the bow pressure building
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass';
+    lp.frequency.setValueAtTime(freq * 1.5, startTime);       // starts dark and muted
+    lp.frequency.setTargetAtTime(freq * 9, startTime, 1.2);   // opens over ~3s
+    lp.Q.value = 1.2;
+
+    // Mix the two saws
+    const sawG = ctx.createGain(); sawG.gain.value = 0.55;
+    const saw2G = ctx.createGain(); saw2G.gain.value = 0.45;
+    saw.connect(sawG); saw2.connect(saw2G);
+    sawG.connect(lp); saw2G.connect(lp); lp.connect(g);
+
+    saw.start(startTime); saw2.start(startTime);
+    oscs.push(saw, saw2);
+
+    g.connect(bus.dry); g.connect(bus.conv);
+    stealVoiceIfNeeded();
+    padVoices.push({oscs, gainNode: g});
+}
+
+/* ================= ADVANCED STRUM SOUND ENGINES ================= */
+
+// Karplus-Strong — uses pre-cached noise buffer per freq bin
+function karplusStrong(freq, decayTime, brightness, outputNode, startTime, decayMul = 1.0) {
+    const source = ctx.createBufferSource();
+    source.buffer = getKSBuffer(freq);
+    source.loop = true;
+    const ks_filter = ctx.createBiquadFilter();
+    ks_filter.type = 'lowpass';
+    ks_filter.frequency.value = brightness;
+    const env = ctx.createGain();
+    const scaledDecay = decayTime * decayMul;
+    env.gain.setValueAtTime(0.8, startTime);
+    env.gain.setTargetAtTime(0.0, startTime + 0.01, scaledDecay / 6);
+    source.connect(ks_filter); ks_filter.connect(env); env.connect(outputNode);
+    source.start(startTime); source.stop(startTime + scaledDecay + 0.5);
+    return source;
+}
+
+function playStrumSound(soundName, freq, outputBus, startTime, gate = 0.3, velScale = 1.0, panPos = 0) {
+    freq = freq * Math.pow(2, _cachedStrumOctave);
+
+    const g = ctx.createGain();
+    g.gain.value = 0.38 * velScale;
+
+    // Stereo spread
+    if (_cachedStrumSpread > 0.01 && Math.abs(panPos) > 0.001) {
+        const panner = ctx.createStereoPanner();
+        panner.pan.value = Math.max(-1, Math.min(1, panPos * _cachedStrumSpread));
+        g.connect(panner);
+        panner.connect(outputBus.dry);
+        panner.connect(outputBus.conv);
+    } else {
+        g.connect(outputBus.dry);
+        g.connect(outputBus.conv);
+    }
+
+    // All oscillators/buffers created in this note — stopped and disconnected on cleanup
+    const strumNodes = [];
+
+    const cleanupDelay = soundName === 'tibetanBowl' ? 9000 : Math.max((gate + 0.5) * 1000, 3000);
+    setTimeout(() => {
+        try { g.disconnect(); } catch(e) {}
+        strumNodes.forEach(n => { try { n.stop(); } catch(e) {} });
+    }, cleanupDelay);
+
+    const decayMul = _cachedStrumDecay;
+
+    switch(soundName) {
+        case 'glassString': {
+            // 2 harmonics with shared vibrato — was 4, halves node count
+            [1, 2].forEach((h, i) => {
+                const o = ctx.createOscillator(); o.type = 'sine';
+                o.frequency.setValueAtTime(freq * h, startTime);
+                const vib = ctx.createOscillator(); vib.frequency.value = 5 + i * 0.3;
+                const vibG = ctx.createGain();
+                vibG.gain.setValueAtTime(0, startTime);
+                vibG.gain.setTargetAtTime(freq * h * 0.001, startTime + 0.08, 0.15);
+                vib.connect(vibG); vibG.connect(o.frequency); vib.start(startTime);
+                const eg = ctx.createGain();
+                eg.gain.setValueAtTime(0, startTime);
+                eg.gain.setTargetAtTime(0.35 / (i + 1), startTime, 0.002);
+                eg.gain.setTargetAtTime(0, startTime + 0.01, (0.5 - i * 0.08) * decayMul);
+                o.connect(eg); eg.connect(g);
+                o.start(startTime);
+                o.stop(startTime + 2.0 * decayMul); vib.stop(startTime + 2.0 * decayMul);
+                strumNodes.push(o, vib);
+            });
+            break;
+        }
+        case 'harp': {
+            const harpBrightness = Math.min(freq * 10, 4000);
+            karplusStrong(freq, 2.5, harpBrightness, g, startTime, decayMul);
+            [2, 4].forEach((h, i) => {
+                const o = ctx.createOscillator(); o.type = 'sine';
+                o.frequency.setValueAtTime(freq * h, startTime);
+                const eg = ctx.createGain();
+                eg.gain.setValueAtTime(0.08, startTime);
+                eg.gain.setTargetAtTime(0, startTime + 0.02, (0.4 - i * 0.1) * decayMul);
+                o.connect(eg); eg.connect(g);
+                o.start(startTime); o.stop(startTime + 3.0 * decayMul);
+                strumNodes.push(o);
+            });
+            break;
+        }
+        case 'marimba': {
+            const carrier = ctx.createOscillator(); carrier.type = 'sine';
+            carrier.frequency.setValueAtTime(freq, startTime);
+            const modulator = ctx.createOscillator(); modulator.type = 'sine';
+            modulator.frequency.setValueAtTime(freq * 3.5, startTime);
+            const mG = ctx.createGain();
+            mG.gain.setValueAtTime(freq * 4, startTime);
+            mG.gain.exponentialRampToValueAtTime(0.001, startTime + 0.06);
+            modulator.connect(mG); mG.connect(carrier.frequency);
+            const env = ctx.createGain();
+            env.gain.setValueAtTime(0.7, startTime);
+            env.gain.setTargetAtTime(0, startTime + 0.02, 0.25 * decayMul);
+            carrier.connect(env); env.connect(g);
+            const sub = ctx.createOscillator(); sub.type = 'sine';
+            sub.frequency.setValueAtTime(freq * 0.5, startTime);
+            const subE = ctx.createGain();
+            subE.gain.setValueAtTime(0.3, startTime);
+            subE.gain.setTargetAtTime(0, startTime + 0.005, 0.15 * decayMul);
+            sub.connect(subE); subE.connect(g);
+            carrier.start(startTime); modulator.start(startTime); sub.start(startTime);
+            carrier.stop(startTime + 1.5 * decayMul); modulator.stop(startTime + 0.2); sub.stop(startTime + 0.5 * decayMul);
+            strumNodes.push(carrier, modulator, sub);
+            break;
+        }
+        case 'bells': {
+            const c = ctx.createOscillator(); c.type = 'sine';
+            c.frequency.setValueAtTime(freq * 2, startTime);
+            const m = ctx.createOscillator(); m.type = 'sine';
+            m.frequency.setValueAtTime(freq * 2 * 2.756, startTime);
+            const mG = ctx.createGain();
+            mG.gain.setValueAtTime(freq * 8, startTime);
+            mG.gain.exponentialRampToValueAtTime(0.001, startTime + 0.4);
+            m.connect(mG); mG.connect(c.frequency);
+            const env = ctx.createGain();
+            env.gain.setValueAtTime(0.5, startTime);
+            env.gain.setTargetAtTime(0, startTime + 0.01, 0.8 * decayMul);
+            c.connect(env); env.connect(g);
+            c.start(startTime); m.start(startTime);
+            c.stop(startTime + 3.0 * decayMul); m.stop(startTime + 1.0);
+            strumNodes.push(c, m);
+            break;
+        }
+        case 'koto': {
+            karplusStrong(freq, 1.5, freq * 6, g, startTime, decayMul);
+            const slideOsc = ctx.createOscillator(); slideOsc.type = 'sine';
+            slideOsc.frequency.setValueAtTime(freq * 1.05, startTime);
+            slideOsc.frequency.setTargetAtTime(freq * 0.97, startTime + 0.01, 0.08);
+            const slideEnv = ctx.createGain();
+            slideEnv.gain.setValueAtTime(0.4, startTime);
+            slideEnv.gain.setTargetAtTime(0, startTime + 0.02, 0.3);
+            slideOsc.connect(slideEnv); slideEnv.connect(g);
+            slideOsc.start(startTime); slideOsc.stop(startTime + 1.5);
+            strumNodes.push(slideOsc);
+            break;
+        }
+        case 'vibraphone': {
+            [[1, 1.414, 0], [1, 1.414, 4]].forEach(([cR, mR, det]) => {
+                const c = ctx.createOscillator(); c.type = 'sine';
+                c.frequency.setValueAtTime(freq, startTime);
+                c.detune.setValueAtTime(det, startTime);
+                const m = ctx.createOscillator(); m.type = 'sine';
+                m.frequency.setValueAtTime(freq * mR, startTime);
+                const mGain = ctx.createGain();
+                mGain.gain.setValueAtTime(freq * 1.8, startTime);
+                mGain.gain.exponentialRampToValueAtTime(freq * 0.08, startTime + 0.12);
+                m.connect(mGain); mGain.connect(c.frequency);
+                const env = ctx.createGain();
+                env.gain.setValueAtTime(0.35, startTime);
+                env.gain.setTargetAtTime(0, startTime + 0.05, 0.55 * decayMul);
+                c.connect(env); env.connect(g);
+                c.start(startTime); m.start(startTime);
+                c.stop(startTime + 3.5 * decayMul); m.stop(startTime + 0.8);
+                strumNodes.push(c, m);
+            });
+            const motorLfo = ctx.createOscillator(); motorLfo.frequency.value = 6.5;
+            const motorG = ctx.createGain(); motorG.gain.value = 0.04;
+            motorLfo.connect(motorG); motorG.connect(g.gain);
+            motorLfo.start(startTime); motorLfo.stop(startTime + 3.5 * decayMul);
+            strumNodes.push(motorLfo);
+            break;
+        }
+        case 'kalimba': {
+            const c = ctx.createOscillator(); c.type = 'sine';
+            c.frequency.setValueAtTime(freq * 1.008, startTime);
+            c.frequency.setTargetAtTime(freq, startTime + 0.015, 0.02);
+            const m = ctx.createOscillator(); m.type = 'sine';
+            m.frequency.setValueAtTime(freq * 5.2, startTime);
+            const mG = ctx.createGain();
+            mG.gain.setValueAtTime(freq * 2.2, startTime);
+            mG.gain.exponentialRampToValueAtTime(0.001, startTime + 0.05);
+            m.connect(mG); mG.connect(c.frequency);
+            const env = ctx.createGain();
+            env.gain.setValueAtTime(0.65, startTime);
+            env.gain.setTargetAtTime(0, startTime + 0.01, 0.45 * decayMul);
+            c.connect(env); env.connect(g);
+            const body = ctx.createOscillator(); body.type = 'sine';
+            body.frequency.setValueAtTime(freq * 0.5, startTime);
+            const bodyE = ctx.createGain();
+            bodyE.gain.setValueAtTime(0.2, startTime);
+            bodyE.gain.setTargetAtTime(0, startTime + 0.005, 0.2 * decayMul);
+            body.connect(bodyE); bodyE.connect(g);
+            c.start(startTime); m.start(startTime); body.start(startTime);
+            c.stop(startTime + 2.5 * decayMul); m.stop(startTime + 0.2); body.stop(startTime + 0.8 * decayMul);
+            strumNodes.push(c, m, body);
+            break;
+        }
+        case 'shakuhachi': {
+            const tone = ctx.createOscillator(); tone.type = 'sine';
+            tone.frequency.setValueAtTime(freq * 1.04, startTime);
+            tone.frequency.setTargetAtTime(freq, startTime + 0.04, 0.06);
+            const toneEnv = ctx.createGain();
+            toneEnv.gain.setValueAtTime(0, startTime);
+            toneEnv.gain.setTargetAtTime(0.55, startTime, 0.04);
+            toneEnv.gain.setTargetAtTime(0, startTime + gate * 0.8, 0.18);
+            tone.connect(toneEnv); toneEnv.connect(g);
+            tone.start(startTime); tone.stop(startTime + gate + 0.5);
+
+            // Shared pre-cached noise buffer — no allocation per note
+            const ns = ctx.createBufferSource();
+            ns.buffer = _shakNoiseBuffer; ns.loop = true;
+            const nbp = ctx.createBiquadFilter(); nbp.type = 'bandpass';
+            nbp.frequency.value = freq * 1.1; nbp.Q.value = 3;
+            const nEnv = ctx.createGain();
+            nEnv.gain.setValueAtTime(0.35, startTime);
+            nEnv.gain.setTargetAtTime(0.08, startTime + 0.05, 0.08);
+            nEnv.gain.setTargetAtTime(0, startTime + gate * 0.85, 0.12);
+            ns.connect(nbp); nbp.connect(nEnv); nEnv.connect(g);
+            ns.start(startTime); ns.stop(startTime + gate + 0.4);
+
+            const vib = ctx.createOscillator(); vib.frequency.value = 4.2;
+            const vibG = ctx.createGain();
+            vibG.gain.setValueAtTime(0, startTime);
+            vibG.gain.setTargetAtTime(freq * 0.012, startTime + 0.1, 0.2);
+            vib.connect(vibG); vibG.connect(tone.frequency);
+            vib.start(startTime); vib.stop(startTime + gate + 0.3);
+            strumNodes.push(tone, ns, vib);
+            break;
+        }
+        case 'pluckSynth': {
+            const saw = ctx.createOscillator(); saw.type = 'sawtooth';
+            saw.frequency.setValueAtTime(freq, startTime);
+            const saw2 = ctx.createOscillator(); saw2.type = 'sawtooth';
+            saw2.frequency.setValueAtTime(freq, startTime);
+            saw2.detune.setValueAtTime(7, startTime);
+            const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = 3.5;
+            lp.frequency.setValueAtTime(freq * 12, startTime);
+            lp.frequency.setTargetAtTime(freq * 0.8, startTime + 0.002, 0.18 * decayMul);
+            const env = ctx.createGain();
+            env.gain.setValueAtTime(0.7, startTime);
+            env.gain.setTargetAtTime(0, startTime + 0.01, 0.3 * decayMul);
+            const sawG = ctx.createGain(); sawG.gain.value = 0.5;
+            const saw2G = ctx.createGain(); saw2G.gain.value = 0.5;
+            saw.connect(sawG); saw2.connect(saw2G);
+            sawG.connect(lp); saw2G.connect(lp); lp.connect(env); env.connect(g);
+            saw.start(startTime); saw2.start(startTime);
+            saw.stop(startTime + 1.5 * decayMul); saw2.stop(startTime + 1.5 * decayMul);
+            strumNodes.push(saw, saw2);
+            break;
+        }
+        case 'tibetanBowl': {
+            const partials = [
+                { ratio: 1,     beatOffset: 0.3,  amp: 0.55, decay: 5.5 },
+                { ratio: 2.756, beatOffset: 0.7,  amp: 0.25, decay: 3.5 },
+                { ratio: 5.05,  beatOffset: 1.3,  amp: 0.10, decay: 2.0 },
+            ];
+            partials.forEach(p => {
+                [0, p.beatOffset].forEach(offset => {
+                    const o = ctx.createOscillator(); o.type = 'sine';
+                    o.frequency.setValueAtTime(freq * p.ratio + offset, startTime);
+                    const env = ctx.createGain();
+                    env.gain.setValueAtTime(p.amp * 0.5, startTime);
+                    env.gain.setTargetAtTime(0, startTime + 0.1, (p.decay * decayMul) / 5);
+                    o.connect(env); env.connect(g);
+                    o.start(startTime); o.stop(startTime + p.decay * decayMul + 1.0);
+                    strumNodes.push(o);
+                });
+            });
+            // Shared small noise buffer for mallet strike — no per-note allocation
+            const ss = ctx.createBufferSource(); ss.buffer = _pizzNoiseBuffer;
+            const sbp = ctx.createBiquadFilter(); sbp.type = 'bandpass';
+            sbp.frequency.value = freq * 2.5; sbp.Q.value = 4;
+            const sg = ctx.createGain(); sg.gain.value = 0.3;
+            ss.connect(sbp); sbp.connect(sg); sg.connect(g);
+            ss.start(startTime);
+            strumNodes.push(ss);
+            break;
+        }
+    }
+}
+
+/* ================= MUSIC LOGIC ================= */
+const roots={ C:261.63,Csharp:277.18,D:293.66,Dsharp:311.13,E:329.63,F:349.23,Fsharp:369.99,G:392,Gsharp:415.3,A:440,Asharp:466.16,B:493.88 };
+
+const chordTypes={ 
+    MAJOR:{i:[0,4,7]}, 
+    MINOR:{i:[0,3,7]}, 
+    'DOM 7':{i:[0,4,10]}, 
+    'MAJ 7':{i:[0,4,11]}, 
+    'MIN 7':{i:[0,3,10]}, 
+    'DIM':{i:[0,3,6]}, 
+    'SUS 4':{i:[0,5,7]},
+    'ADD 9':{i:[0,4,7,14]}
+};
+
+let currentRootFreq=null, currentType='MAJOR', currentNotes=[], padVoices=[], pauseActive=false;
+let activeRoots=new Set();
+
+function getNormalizedNotes(rootFreq, intervals) {
+    const lowBound = 220; 
+    const highBound = 440; 
+    return intervals.map(semi => {
+        let freq = rootFreq * Math.pow(2, semi / 12);
+        while (freq > highBound * 2) freq /= 2;
+        while (freq < lowBound / 2) freq *= 2;
+        return freq;
+    }).sort((a, b) => a - b);
+}
+
+const MAX_PAD_VOICES = 8;
+
+function stopPad(fade = 0.4) {
+    const now = ctx.currentTime;
+    const releaseTime = now + fade;
+    const toRemove = [...padVoices];
+    toRemove.forEach(v => {
+        try {
+            v.gainNode.gain.cancelScheduledValues(now);
+            v.gainNode.gain.setTargetAtTime(0, now, fade / 3);
+            // Disconnect from graph after fade so GC can collect
+            setTimeout(() => {
+                try { v.gainNode.disconnect(); } catch(e) {}
+            }, (fade + 0.2) * 1000);
+            v.oscs.forEach(o => { try { o.stop(releaseTime + 0.1); } catch(e) {} });
+        } catch(e) {}
+    });
+    padVoices = padVoices.filter(v => !toRemove.includes(v));
+}
+
+// Voice stealing: if we exceed MAX_PAD_VOICES, kill the oldest
+function stealVoiceIfNeeded() {
+    if (padVoices.length >= MAX_PAD_VOICES) {
+        const oldest = padVoices.shift(); // remove oldest
+        if (oldest) {
+            try {
+                oldest.gainNode.gain.cancelScheduledValues(ctx.currentTime);
+                oldest.gainNode.gain.setTargetAtTime(0, ctx.currentTime, 0.05);
+                oldest.oscs.forEach(o => { try { o.stop(ctx.currentTime + 0.1); } catch(e) {} });
+                setTimeout(() => { try { oldest.gainNode.disconnect(); } catch(e) {} }, 200);
+            } catch(e) {}
+        }
+    }
+}
+
+function playChordDebounced() {
+    if (chordDebounceTimer) clearTimeout(chordDebounceTimer);
+    chordDebounceTimer = setTimeout(() => playChord(), 20);
+}
+
+function playChord(){
+    if(currentRootFreq==null) return;
+    const baseNotes = getNormalizedNotes(currentRootFreq, chordTypes[currentType].i);
+    
+    let expandedNotes = [];
+    for(let oct = -1; oct <= 2; oct++) {
+        baseNotes.forEach(f => expandedNotes.push(f * Math.pow(2, oct)));
+    }
+    currentNotes = expandedNotes.filter(f => f > 50 && f < 3000).sort((a,b)=>a-b).slice(0, 12);
+    
+    if(!pauseActive){
+        stopPad(0.15); 
+        const startTime = ctx.currentTime + 0.02; 
+        const padSoundName = document.getElementById('padSound').value;
+        
+        baseNotes.forEach(f => {
+            const t = startTime;
+            switch(padSoundName) {
+                case 'warmGlow':      synth_warmGlow(f, 1.0, padBus, t); break;
+                case 'deepSpace':     synth_deepSpace(f, 1.0, padBus, t); break;
+                case 'choirAngel':    synth_choirAngel(f, 1.0, padBus, t); break;
+                case 'organPipe':     synth_organPipe(f, 1.0, padBus, t); break;
+                case 'membraneDrone': synth_membraneDrone(f, 1.0, padBus, t); break;
+                case 'preparedPiano':  synth_preparedPiano(f, 1.0, padBus, t); break;
+                case 'hyperPad':      synth_hyperPad(f, 1.0, padBus, t); break;
+                case 'celloSwell':    synth_celloSwell(f, 1.0, padBus, t); break;
+                case 'tapeDrone':     synth_tapeDrone(f, 1.0, padBus, t); break;
+                case 'dxBrass':       synth_dxBrass(f, 1.0, padBus, t); break;
+                default:              synth_warmGlow(f, 1.0, padBus, t);
+            }
+            
+            if(shimmerEnabled) {
+                const sVol = parseFloat(shimmerVolume.value);
+                const sO = ctx.createOscillator(); sO.type = 'sine';
+                sO.frequency.setValueAtTime(f * 2, t);
+                const sG = ctx.createGain();
+                sG.gain.setValueAtTime(0, t);
+                sG.gain.setTargetAtTime(sVol * 1.2, t, 0.3);
+                // Correct bus routing: sG → bus.dry and sG → bus.conv (the convolver input)
+                sO.connect(sG);
+                sG.connect(shimmerBus.dry);
+                sG.connect(shimmerBus.conv);
+                sO.start(t);
+                stealVoiceIfNeeded();
+                padVoices.push({oscs: [sO], gainNode: sG});
+            }
+        });
+
+        if(deepBassEnabled) {
+            const bVol = parseFloat(deepBassVolume.value);
+            const bFreq = currentRootFreq < 300 ? currentRootFreq / 2 : currentRootFreq / 4;
+            const subG = ctx.createGain();
+            subG.gain.setValueAtTime(0, startTime);
+            subG.gain.setTargetAtTime(bVol * 1.2, startTime, 0.1); // was 0.4 — too quiet
+            const bassOsc = ctx.createOscillator(); bassOsc.type = 'sine';
+            bassOsc.frequency.setValueAtTime(bFreq, startTime);
+            const bassOsc2 = ctx.createOscillator(); bassOsc2.type = 'triangle';
+            bassOsc2.frequency.setValueAtTime(bFreq, startTime);
+            const b2g = ctx.createGain(); b2g.gain.value = 0.2;
+            bassOsc.connect(subG); bassOsc2.connect(b2g); b2g.connect(subG);
+            subG.connect(padBus.dry); subG.connect(padBus.conv);
+            bassOsc.start(startTime); bassOsc2.start(startTime);
+            stealVoiceIfNeeded();
+            padVoices.push({oscs: [bassOsc, bassOsc2], gainNode: subG});
+        }
+    }
+}
+
+/* ================= ARP NOTE PICKER ================= */
+function getArpNoteIndex(step) {
+    const voices      = Math.min(_cachedArpVoices, currentNotes.length);
+    if(voices === 0) return 0;
+    const pattern     = _cachedArpPattern;
+    const octaves     = _cachedArpOctave;
+    const totalNotes  = voices * octaves;
+    
+    switch(pattern) {
+        case 'up':
+            return step % totalNotes;
+        case 'down':
+            return (totalNotes - 1) - (step % totalNotes);
+        case 'updown': {
+            const period = totalNotes > 1 ? (totalNotes - 1) * 2 : 1;
+            const pos = step % period;
+            return pos < totalNotes ? pos : period - pos;
+        }
+        case 'downup': {
+            const period2 = totalNotes > 1 ? (totalNotes - 1) * 2 : 1;
+            const pos2 = step % period2;
+            const raw = pos2 < totalNotes ? pos2 : period2 - pos2;
+            return (totalNotes - 1) - raw;
+        }
+        case 'random':
+            return Math.floor(Math.random() * totalNotes);
+        case 'skip':
+            return (step * 2) % totalNotes;
+        case 'strum':
+            return step % totalNotes;
+        default:
+            return step % totalNotes;
+    }
+}
+
+function getArpFreq(noteIndex) {
+    const voices      = Math.min(_cachedArpVoices, currentNotes.length);
+    if(voices === 0) return null;
+    const octaves     = _cachedArpOctave;
+    const totalNotes  = voices * octaves;
+    const clampedIdx  = Math.max(0, Math.min(noteIndex, totalNotes - 1));
+    const baseIdx     = clampedIdx % voices;
+    const octaveShift = Math.floor(clampedIdx / voices);
+    return currentNotes[baseIdx] * Math.pow(2, octaveShift);
+}
+
+function scheduleNote(step, time) {
+    if(currentNotes.length === 0) return;
+    // Use cached values — no DOM reads in hot path
+    const strumSoundName = _cachedArpSound;
+    const pattern        = _cachedArpPattern;
+    const gate           = _cachedArpGate;
+    const subdivVal      = _cachedArpSubdiv;
+    const octaves        = _cachedArpOctave;
+    const secondsPerBeat = 60.0 / currentBpm;
+    const stepDuration   = secondsPerBeat / subdivVal;
+    const humanVelScale  = 0.75 + Math.random() * 0.5;
+
+    if(pattern === 'strum') {
+        const voices = Math.min(_cachedArpVoices, currentNotes.length);
+        const strumNotes = [];
+        for(let oct = 0; oct < octaves; oct++) {
+            currentNotes.slice(0, voices).forEach(freq => strumNotes.push(freq * Math.pow(2, oct)));
+        }
+        strumNotes.sort((a, b) => a - b);
+        const strumDelay = 0.022;
+        const minF = strumNotes[0], maxF = strumNotes[strumNotes.length - 1];
+
+        strumNotes.forEach((freq, i) => {
+            const t = time + i * strumDelay;
+            const velCurve = 1.0 - (i / strumNotes.length) * 0.4;
+            const noteVel  = humanVelScale * velCurve;
+            // Pan: map frequency range to [-1, +1]
+            const panPos = strumNotes.length > 1 ? ((freq - minF) / (maxF - minF)) * 2 - 1 : 0;
+            const noteGain = ctx.createGain();
+            noteGain.gain.setValueAtTime(noteVel, t);
+            noteGain.connect(arpBus.dry);
+            noteGain.connect(arpBus.conv);
+            playStrumSound(strumSoundName, freq, { dry: noteGain, conv: noteGain }, t, gate * stepDuration, 1.0, panPos);
+            pushVisual(keyboard.children[i % 12], t);
+        });
+    } else {
+        const noteIdx = getArpNoteIndex(step);
+        let freq = getArpFreq(noteIdx);
+        if(!freq) return;
+        // For sequential patterns, pan based on note index position in the voice range
+        const voices = Math.min(_cachedArpVoices, currentNotes.length);
+        const totalPool = voices * octaves;
+        const panPos = totalPool > 1 ? (noteIdx / (totalPool - 1)) * 2 - 1 : 0;
+        playStrumSound(strumSoundName, freq, arpBus, time, gate * stepDuration, humanVelScale, panPos);
+        pushVisual(keyboard.children[noteIdx % 12], time);
+    }
+}
+
+function scheduler() {
+    // Refresh cache once per scheduler tick, not per note
+    refreshArpCache();
+    const subdivVal      = _cachedArpSubdiv;
+    const swing          = _cachedArpSwing;
+    const secondsPerBeat = 60.0 / currentBpm;
+    const stepDuration   = secondsPerBeat / subdivVal;
+
+    while (nextNoteTime < ctx.currentTime + scheduleAheadTime) {
+        const isEvenStep  = (currentArpStep % 2 === 1);
+        const swingOffset = isEvenStep ? swing * stepDuration : 0;
+        scheduleNote(currentArpStep, nextNoteTime + swingOffset);
+        nextNoteTime += stepDuration;
+        currentArpStep++;
+    }
+    timerID = setTimeout(scheduler, lookahead);
+}
+
+let _lastStrumTime = 0;
+const STRUM_THROTTLE_MS = 25; // max one note per 40ms — prevents note avalanche on fast hover
+
+function playArpManual(freq, keyDiv){
+    if(!freq || ctx.state === 'suspended') return;
+    const now = performance.now();
+    if (now - _lastStrumTime < STRUM_THROTTLE_MS) return;
+    _lastStrumTime = now;
+    const humanVel = 0.75 + Math.random() * 0.5;
+    playStrumSound(_cachedArpSound, freq, arpBus, ctx.currentTime, _cachedArpGate, humanVel);
+    keyDiv.classList.add('active');
+    setTimeout(() => keyDiv.classList.remove('active'), 150);
+}
+
+/* ================= INTERFACE & BUTTONS ================= */
+const rootsDiv=document.getElementById('roots');
+Object.keys(roots).forEach((r)=>{
+  const b=document.createElement('button');
+  const isSharp = r.includes('sharp');
+  b.textContent=isSharp?r.replace('sharp','#'):r;
+  if(isSharp) b.classList.add('sharp-note');
+  b.onmousedown=()=>{ 
+    if (modifiersPressed.size === 0) { resetType(); }
+    activeRoots.add(r); b.classList.add('active'); currentRootFreq=roots[r]; playChordDebounced();
+  };
+  b.onmouseup=b.onmouseleave=()=>{ activeRoots.delete(r); b.classList.remove('active'); };
+  rootsDiv.appendChild(b);
+});
+
+function resetType() {
+    currentType = 'MAJOR';
+    Object.values(typeButtons).forEach(btn => btn.classList.remove('active'));
+}
+
+const typesDiv=document.getElementById('types');
+
+const pauseB=document.createElement('button');
+pauseB.textContent='PAUSE PAD'; pauseB.className='pause-btn';
+pauseB.onclick=()=>{ 
+    pauseActive=!pauseActive; 
+    if(pauseActive) { stopPad(0.4); pauseB.classList.add('active'); } 
+    else { pauseB.classList.remove('active'); playChordDebounced(); }
+};
+typesDiv.appendChild(pauseB);
+
+const typeButtons={};
+Object.keys(chordTypes).forEach(t=>{
+    if(t==='MAJOR') return;
+    const b=document.createElement('button'); b.textContent=t;
+    b.onclick=()=>{ 
+        Object.values(typeButtons).forEach(btn=>btn.classList.remove('active')); 
+        currentType=t; 
+        b.classList.add('active'); 
+        playChordDebounced(); 
+    };
+    typesDiv.appendChild(b); typeButtons[t]=b;
+});
+
+const keyMap=['1','2','3','4','5','6','7','8','9','0',"'",'¿'];
+const keyboard=document.getElementById('keyboard');
+keyMap.forEach((k,i)=>{
+  const d=document.createElement('div'); d.className='string'; d.innerHTML=`<div class="string-wire"></div><span>${k}</span>`;
+  d.onmouseenter=()=> { if(!autoArpEnabled) playArpManual(currentNotes[i], d); }; 
+  keyboard.appendChild(d);
+});
+
+/* ================= SPATIAL LOGIC ================= */
+const pointer = document.getElementById('hand-pointer');
+const zLabel = document.getElementById('z-indicator');
+let lastKeyIndex = -1;
+const smoothData = { x: 0.5, y: 0.5, z: 0.5, lerpFactor: 0.15 };
+function lerp(target, current, factor) { return current + (target - current) * factor; }
+
+function onResults(results) {
+  if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+    pointer.style.display = 'block';
+    const hand = results.multiHandLandmarks[0];
+    const indexTip = hand[8]; 
+    smoothData.x = lerp(indexTip.x, smoothData.x, smoothData.lerpFactor);
+    smoothData.y = lerp(indexTip.y, smoothData.y, smoothData.lerpFactor);
+    const visualX = (1 - smoothData.x) * window.innerWidth;
+    const visualY = smoothData.y * window.innerHeight;
+    pointer.style.left = visualX + 'px'; pointer.style.top = visualY + 'px';
+    const wrist = hand[0]; const middleBase = hand[9];
+    const rawZScale = Math.sqrt(Math.pow(wrist.x - middleBase.x, 2) + Math.pow(wrist.y - middleBase.y, 2));
+    let zNormalizedRaw = Math.max(0, Math.min(1, (rawZScale - 0.05) / 0.15));
+    smoothData.z = lerp(zNormalizedRaw, smoothData.z, smoothData.lerpFactor);
+    const feedbackVal = (smoothData.z * 0.55) + 0.15;
+    // Modulate echo feedback amount with hand depth (Z axis)
+    echoDelayNodes.forEach((_, i) => {
+        // access feedback gains via closure isn't possible here — modulate wet mix instead
+    });
+    pointer.style.width = pointer.style.height = (15 + (smoothData.z * 40)) + 'px';
+    zLabel.textContent = `3D DEPTH: ${Math.round(smoothData.z * 100)}% | ECHO: ${Math.round(feedbackVal*100)}%`;
+    const cutoff = (1 - smoothData.y) * 15000 + 100;
+    filterNode.frequency.setTargetAtTime(cutoff, ctx.currentTime, 0.1);
+    if (!autoArpEnabled) {
+        const keyboardRect = keyboard.getBoundingClientRect();
+        if (visualX >= keyboardRect.left && visualX <= keyboardRect.right) {
+            const colWidth = keyboardRect.width / 12;
+            const index = Math.floor((visualX - keyboardRect.left) / colWidth);
+            if (index >= 0 && index < 12 && index !== lastKeyIndex) {
+                playArpManual(currentNotes[index], keyboard.children[index]);
+                lastKeyIndex = index;
+            }
+        } else { lastKeyIndex = -1; }
+    }
+  } else { pointer.style.display = 'none'; lastKeyIndex = -1; }
+}
+
+const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
+hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+hands.onResults(onResults);
+
+const camera = new Camera(document.createElement('video'), {
+  onFrame: async () => { await hands.send({image: camera.video}); },
+  width: 1280, height: 720
+});
+
+document.getElementById('loader').onclick = () => { 
+    ctx.resume(); syncVolumes(); refreshArpCache(); updateEchoTimes(); camera.start(); document.getElementById('loader').style.display='none'; 
+};
+
+/* ================= INPUT HANDLERS ================= */
+padVolume.oninput = () => padGlobalGain.gain.setTargetAtTime(parseFloat(padVolume.value) * 0.75, ctx.currentTime, 0.05);
+arpVolume.oninput = () => arpGlobalGain.gain.setTargetAtTime(parseFloat(arpVolume.value) * 0.75, ctx.currentTime, 0.05);
+
+// Echo mix
+padEcho.oninput = () => { if(_fxEnabled.padEcho) padEchoBpmGain.gain.setTargetAtTime(parseFloat(padEcho.value), ctx.currentTime, 0.05); };
+arpEcho.oninput = () => { if(_fxEnabled.arpEcho) arpEchoBpmGain.gain.setTargetAtTime(parseFloat(arpEcho.value), ctx.currentTime, 0.05); };
+
+// Echo sync division — updates delay time on change
+document.getElementById('padEchoSync').onchange = updateEchoTimes;
+document.getElementById('arpEchoSync').onchange = updateEchoTimes;
+
+// Reverb
+padReverb.oninput = () => { if(_fxEnabled.padReverb) updateReverb(padBus, parseFloat(padReverb.value), 1.2); };
+arpReverb.oninput = () => { if(_fxEnabled.arpReverb) updateReverb(arpBus, parseFloat(arpReverb.value), 1.1); };
+
+// BPM — single global source from inst-header slider
+function setBpm(val) {
+    currentBpm = Math.max(60, Math.min(200, parseInt(val)));
+    const slider = document.getElementById('globalBpmSlider');
+    const display = document.getElementById('tempoDisplay');
+    if(slider) slider.value = currentBpm;
+    if(display) display.textContent = currentBpm;
+    updateEchoTimes();
+}
+document.getElementById('globalBpmSlider').oninput = function() { setBpm(this.value); };
+
+// Chorus depth
+document.getElementById('padChorusDepth').oninput = updateChorus;
+document.getElementById('arpChorusDepth').oninput = updateChorus;
+
+// Cutoff & Resonance
+document.getElementById('padCutoff').oninput = () => padFilter.frequency.setTargetAtTime(parseFloat(document.getElementById('padCutoff').value), ctx.currentTime, 0.03);
+document.getElementById('padResonance').oninput = () => padFilter.Q.setTargetAtTime(parseFloat(document.getElementById('padResonance').value), ctx.currentTime, 0.03);
+document.getElementById('arpCutoff').oninput = () => arpFilter.frequency.setTargetAtTime(parseFloat(document.getElementById('arpCutoff').value), ctx.currentTime, 0.03);
+document.getElementById('arpResonance').oninput = () => arpFilter.Q.setTargetAtTime(parseFloat(document.getElementById('arpResonance').value), ctx.currentTime, 0.03);
+
+shimmerVolume.oninput = () => { if(shimmerEnabled) playChordDebounced(); };
+deepBassVolume.oninput = () => { if(deepBassEnabled) playChordDebounced(); };
+
+document.getElementById('strumDecay').oninput = function() {
+    document.getElementById('strumDecayDisplay').textContent = parseFloat(this.value).toFixed(2) + '×';
+    refreshArpCache();
+};
+document.getElementById('strumOctaveTranspose').oninput = function() {
+    const v = parseInt(this.value);
+    document.getElementById('strumOctDisplay').textContent = v > 0 ? '+' + v : v;
+    refreshArpCache();
+};
+document.getElementById('strumSpread').oninput = function() {
+    document.getElementById('strumSpreadDisplay').textContent = Math.round(this.value * 100) + '%';
+    refreshArpCache();
+};
+document.getElementById('arpVoices').oninput = function() {
+    document.getElementById('voicesDisplay').textContent = this.value;
+    refreshArpCache();
+};
+document.getElementById('arpSwing').oninput = function() {
+    document.getElementById('swingDisplay').textContent = Math.round(this.value * 100 / 0.45) + '%';
+    refreshArpCache();
+};
+document.getElementById('arpGate').oninput = function() {
+    document.getElementById('gateDisplay').textContent = Math.round(this.value * 100 / 1.5) + '%';
+    refreshArpCache();
+};
+document.getElementById('arpSound').onchange   = refreshArpCache;
+document.getElementById('arpPattern').onchange = refreshArpCache;
+document.getElementById('arpSubdiv').onchange  = refreshArpCache;
+
+// Re-trigger chord when pad sound changes
+document.getElementById('padSound').onchange = () => playChordDebounced();
+
+function updateReverb(bus,v,m){
+  const g=constantPower(v); bus.dry.gain.setTargetAtTime(g.dry, ctx.currentTime, 0.05); 
+  bus.wet.gain.setTargetAtTime(g.wet*m, ctx.currentTime, 0.05);
+}
+
+const rootKeys=['KeyA','KeyW','KeyS','KeyE','KeyD','KeyF','KeyT','KeyG','KeyY','KeyH','KeyU','KeyJ'];
+const modifierKeys={ 
+    KeyX:'MINOR', KeyC:'DOM 7', KeyV:'MAJ 7', KeyB:'MIN 7', KeyN:'DIM', 
+    KeyM:'SUS 4', Comma:'ADD 9' 
+};
+let modifiersPressed = new Set();
+
+document.addEventListener('keydown',e=>{
+  if(e.repeat) return;
+  if(e.code==='Space'){ pauseB.click(); e.preventDefault(); return; }
+  
+  if(modifierKeys[e.code]){
+    const type = modifierKeys[e.code]; 
+    modifiersPressed.add(type); 
+    currentType = type;
+    Object.values(typeButtons).forEach(btn => btn.classList.remove('active'));
+    if(typeButtons[type]) typeButtons[type].classList.add('active');
+    // Always trigger playChord when mode changes — even if root was already released
+    // This is the core fix: mode change should always update the current chord
+    if(currentRootFreq !== null) playChordDebounced();
+    return;
+  }
+
+  const r=rootKeys.indexOf(e.code);
+  if(r>=0){
+    // Only reset to MAJOR if no modifier is currently held AND no modifier was manually set
+    if(modifiersPressed.size === 0 && currentType !== 'MAJOR') resetType();
+    else if(modifiersPressed.size === 0) resetType();
+    const rootName = Object.keys(roots)[r];
+    activeRoots.add(rootName); 
+    rootsDiv.children[r].classList.add('active'); 
+    currentRootFreq=roots[rootName]; 
+    playChordDebounced(); 
+    return; 
+  }
+
+  const s=keyMap.indexOf(e.key);
+  if(s>=0 && !autoArpEnabled) playArpManual(currentNotes[s], keyboard.children[s]);
+});
+
+document.addEventListener('keyup',e=>{
+  if(modifierKeys[e.code]) {
+      modifiersPressed.delete(modifierKeys[e.code]);
+  }
+  const r=rootKeys.indexOf(e.code);
+  if(r>=0){ 
+      const rootName = Object.keys(roots)[r];
+      activeRoots.delete(rootName); 
+      rootsDiv.children[r].classList.remove('active'); 
+      if(activeRoots.size === 0 && modifiersPressed.size === 0) {
+          currentType = 'MAJOR';
+          Object.values(typeButtons).forEach(btn => btn.classList.remove('active'));
+      }
+  }
+});
+
+/* ================= RIGHT PANEL ================= */
+
+// ---- Transpose ----
+let globalTranspose = 0;
+function shiftTranspose(delta) {
+    globalTranspose = Math.max(-12, Math.min(12, globalTranspose + delta));
+    const label = globalTranspose > 0 ? '+' + globalTranspose : String(globalTranspose);
+    const el = document.getElementById('transposeDisplay');
+    if(el) el.textContent = label;
+    if(currentRootFreq !== null) playChordDebounced();
+}
+// Patch playChord to apply transpose to rootFreq
+const _origPlayChord = playChord;
+window.playChord = function() {
+    if(currentRootFreq == null) return;
+    const _savedRoot = currentRootFreq;
+    currentRootFreq = _savedRoot * Math.pow(2, globalTranspose / 12);
+    _origPlayChord();
+    currentRootFreq = _savedRoot;
+};
+
+// Keep tempoDisplay in sync — handled inside setBpm directly now
+
+// ---- Tap Tempo ----
+const _tapTimes = [];
+function tapTempo() {
+    const now = performance.now();
+    _tapTimes.push(now);
+    if (_tapTimes.length > 8) _tapTimes.shift();
+    if (_tapTimes.length >= 2) {
+        const intervals = [];
+        for (let i = 1; i < _tapTimes.length; i++) intervals.push(_tapTimes[i] - _tapTimes[i-1]);
+        const avg = intervals.reduce((a,b) => a+b, 0) / intervals.length;
+        setBpm(Math.max(60, Math.min(200, Math.round(60000 / avg))));
+    }
+    // Flash the tap button
+    const btn = document.getElementById('tapBtn');
+    if(btn) { btn.style.background = 'rgba(70,206,131,0.4)'; btn.style.color = '#fff'; setTimeout(() => { btn.style.background = ''; btn.style.color = ''; }, 100); }
+}
+
+// ---- Chord display ----
+const noteNames = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+function freqToNoteName(freq) {
+    const midi = Math.round(12 * Math.log2(freq / 440) + 69);
+    return noteNames[((midi % 12) + 12) % 12];
+}
+function updateChordDisplay() {
+    if (!currentRootFreq) return;
+    const transposedRoot = currentRootFreq * Math.pow(2, globalTranspose / 12);
+    const rootNote = freqToNoteName(transposedRoot);
+    const typeName = currentType === 'MAJOR' ? '' : currentType;
+    const topDisplay = document.getElementById('chordNameDisplay');
+    if(topDisplay) {
+        topDisplay.textContent = typeName ? rootNote + ' ' + typeName : rootNote;
+        topDisplay.classList.add('active');
+    }
+}
+// Hook into playChord to update display
+const _playChordOrig2 = window.playChord;
+window.playChord = function() {
+    _playChordOrig2();
+    updateChordDisplay();
+};
+
+</script>
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then(r => console.log('SW registered:', r.scope))
+      .catch(e => console.log('SW failed:', e));
+  });
+}
+</script>
+</body>
+</html>
